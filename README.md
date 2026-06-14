@@ -21,18 +21,18 @@ cp .env.example .env
 
 ### 2. Configure your newspaper sources
 
-Edit `config/newspapers.yaml` to point at your local newspaper's RSS feed or HTML page:
+Edit `config/newspapers.yaml` to point at your local newspaper's RSS feed or HTML page. Ketchikan Daily News is pre-configured:
 
 ```yaml
 sources:
-  - name: "Springfield Gazette"
-    url: "https://www.springfieldgazette.com/rss"
+  - name: "Ketchikan Daily News"
+    url: "https://www.ketchikandailynews.com/search/?f=rss"
     type: rss
     enabled: true
-    region: "Springfield"
+    region: "Ketchikan, AK"
 ```
 
-For HTML-based newspapers, use `type: html` with CSS selectors (see the commented example in the config file).
+The config includes feeds for Local, Sports, and Obituaries sections. Image-only RSS entries are automatically filtered out.
 
 ### 3. Run with Docker
 
