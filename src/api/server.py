@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from src.config import settings
 from src.database.crud import get_article_by_id, get_articles, get_people, get_person_by_id, get_stats
 from src.database.models import get_db, init_db
+from src.database.url import database_setup_error
 from src.pipeline.runner import run_pipeline
 
 STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
@@ -21,7 +22,13 @@ STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    if settings.database_is_configured():
+        try:
+            init_db()
+        except Exception as exc:
+            print(f"WARNING: Database init failed: {exc}")
+    else:
+        print("WARNING: Database not configured — API data endpoints will return 503")
     yield
 
 
@@ -44,6 +51,12 @@ def verify_api_key(x_api_key: str = Header(...)):
     if x_api_key != settings.api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
+
+
+def require_database():
+    if not settings.database_is_configured():
+        raise HTTPException(status_code=503, detail=database_setup_error())
+    return True
 
 
 class PersonResponse(BaseModel):
@@ -88,15 +101,30 @@ class PipelineResult(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "intel"}
+    return {
+        "status": "ok",
+        "service": "intel",
+        "database": "connected" if settings.database_is_configured() else "not_configured",
+    }
 
 
-@app.get("/api/v1/stats", response_model=StatsResponse, dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/setup")
+def setup_status():
+    """Public endpoint — shows whether Postgres is connected (no API key required)."""
+    configured = settings.database_is_configured()
+    return {
+        "database_configured": configured,
+        "diagnostics": settings.database_diagnostics(),
+        "instructions": None if configured else database_setup_error(),
+    }
+
+
+@app.get("/api/v1/stats", response_model=StatsResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
 def stats(db: Session = Depends(get_db)):
     return get_stats(db)
 
 
-@app.get("/api/v1/articles", response_model=list[ArticleResponse], dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/articles", response_model=list[ArticleResponse], dependencies=[Depends(verify_api_key), Depends(require_database)])
 def list_articles(
     source: Optional[str] = None,
     region: Optional[str] = None,
@@ -109,7 +137,7 @@ def list_articles(
     return [a.to_dict() for a in articles]
 
 
-@app.get("/api/v1/articles/{article_id}", response_model=ArticleResponse, dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/articles/{article_id}", response_model=ArticleResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
 def get_article(article_id: int, db: Session = Depends(get_db)):
     article = get_article_by_id(db, article_id)
     if not article:
@@ -117,7 +145,7 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
     return article.to_dict()
 
 
-@app.get("/api/v1/people", response_model=list[PersonResponse], dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/people", response_model=list[PersonResponse], dependencies=[Depends(verify_api_key), Depends(require_database)])
 def list_people(
     name: Optional[str] = None,
     since: Optional[datetime] = None,
@@ -129,7 +157,7 @@ def list_people(
     return [p.to_dict() for p in people]
 
 
-@app.get("/api/v1/people/{person_id}", response_model=PersonResponse, dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/people/{person_id}", response_model=PersonResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
 def get_person(person_id: int, db: Session = Depends(get_db)):
     person = get_person_by_id(db, person_id)
     if not person:
@@ -137,13 +165,13 @@ def get_person(person_id: int, db: Session = Depends(get_db)):
     return person.to_dict()
 
 
-@app.post("/api/v1/scrape", response_model=PipelineResult, dependencies=[Depends(verify_api_key)])
+@app.post("/api/v1/scrape", response_model=PipelineResult, dependencies=[Depends(verify_api_key), Depends(require_database)])
 def trigger_scrape(db: Session = Depends(get_db)):
     """Manually trigger a scrape run. Useful for CRM integrations."""
     return run_pipeline(db)
 
 
-@app.get("/api/v1/export/people", dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/export/people", dependencies=[Depends(verify_api_key), Depends(require_database)])
 def export_people(
     since: Optional[datetime] = None,
     format: str = Query("json", pattern="^(json|csv)$"),

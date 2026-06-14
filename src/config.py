@@ -1,10 +1,14 @@
 import os
-from functools import lru_cache
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-LOCAL_DATABASE_URL = "postgresql://intel:intel_secret@localhost:5432/intel_db"
+from src.database.url import (
+    LOCAL_DATABASE_URL,
+    database_diagnostics,
+    database_setup_error,
+    resolve_database_url,
+)
 
 
 class Settings(BaseSettings):
@@ -15,6 +19,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "DATABASE_PRIVATE_URL",
             "DATABASE_URL",
+            "POSTGRES_PRIVATE_URL",
             "POSTGRES_URL",
             "database_url",
         ),
@@ -33,7 +38,6 @@ class Settings(BaseSettings):
     @field_validator("database_url", mode="before")
     @classmethod
     def fix_database_url(cls, value: str | None) -> str:
-        # Railway sets DATABASE_URL to "" when ${{Postgres.DATABASE_URL}} has no Postgres service
         if value is None or (isinstance(value, str) and not value.strip()):
             return ""
         if isinstance(value, str) and value.startswith("postgres://"):
@@ -44,27 +48,23 @@ class Settings(BaseSettings):
         return bool(os.environ.get("RAILWAY_ENVIRONMENT"))
 
     def resolved_database_url(self) -> str:
-        url = (self.database_url or "").strip()
-        if url:
-            return url
-        if self.is_railway():
-            return ""
-        return LOCAL_DATABASE_URL
+        return resolve_database_url(self.database_url)
+
+    def database_is_configured(self) -> bool:
+        return bool(self.resolved_database_url())
 
     def validate_database_config(self) -> None:
+        if not self.database_is_configured():
+            raise RuntimeError(database_setup_error())
         url = self.resolved_database_url()
-        if not url:
-            raise RuntimeError(
-                "DATABASE_URL is empty — the Postgres service reference could not be resolved.\n\n"
-                "Fix (choose one):\n"
-                "  1. Run: railway config apply   (provisions Postgres from .railway/railway.ts)\n"
-                "  2. Dashboard: + New → Database → PostgreSQL, then link DATABASE_URL to Intel\n"
-            )
         if ("localhost" in url or "127.0.0.1" in url) and self.is_railway():
             raise RuntimeError(
                 "DATABASE_URL points to localhost on Railway.\n"
-                "Link Postgres: Intel service → Variables → Add Reference → Postgres → DATABASE_URL"
+                "Use Postgres → Connect → Intel, or Add Reference → DATABASE_URL"
             )
+
+    def database_diagnostics(self) -> dict:
+        return database_diagnostics()
 
 
 settings = Settings()

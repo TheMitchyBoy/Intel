@@ -7,6 +7,7 @@ import { PersonCard } from "./components/PersonCard";
 import { ArticleCard } from "./components/ArticleCard";
 import { PersonDetail } from "./components/PersonDetail";
 import { ArticleDetail } from "./components/ArticleDetail";
+import { SetupBanner } from "./components/SetupBanner";
 
 function todayLabel() {
   return new Date().toLocaleDateString(undefined, {
@@ -96,6 +97,7 @@ export default function App() {
       )}
 
       <main className="main">
+        <SetupBanner />
         <StatsCards stats={stats} loading={statsLoading} />
 
         <nav className="tabs">

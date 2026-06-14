@@ -194,11 +194,8 @@ python -m src.main serve       # Start API server
 
 See **[RAILWAY.md](RAILWAY.md)** for full instructions.
 
-**Provision Postgres (fixes empty DATABASE_URL):**
+**If you see "DATABASE_URL is empty":**
 
-```bash
-railway login && railway link
-railway config apply
-```
-
-Then set `OPENAI_API_KEY` and `API_KEY` on the Intel service and deploy.
+1. Railway → **+ New** → **Database** → **PostgreSQL**
+2. Postgres service → **Connect** → select **Intel**
+3. Set `OPENAI_API_KEY` and `API_KEY` on Intel → **Redeploy**

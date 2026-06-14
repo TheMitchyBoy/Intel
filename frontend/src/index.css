@@ -147,6 +147,43 @@ body {
   padding: 1.5rem 2rem 3rem;
 }
 
+/* Setup banner */
+.setup-banner {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #664d03;
+}
+
+.setup-banner h2 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.setup-banner ol {
+  margin: 0.75rem 0 0 1.25rem;
+  font-size: 0.9rem;
+}
+
+.setup-banner li {
+  margin-bottom: 0.35rem;
+}
+
+.setup-banner details {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.setup-banner pre {
+  margin-top: 0.5rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
 /* Stats */
 .stats-grid {
   display: grid;

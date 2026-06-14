@@ -2,10 +2,15 @@
 set -e
 
 echo "Checking database connection..."
-python scripts/wait_for_db.py
-
-echo "Initializing database..."
-python -m src.main init
+if python scripts/wait_for_db.py; then
+  echo "Initializing database..."
+  python -m src.main init
+else
+  echo ""
+  echo "WARNING: Database not available — starting web server anyway."
+  echo "Add PostgreSQL in Railway, connect it to Intel, then redeploy."
+  echo ""
+fi
 
 PORT="${PORT:-8000}"
 echo "Starting server on port ${PORT}..."
