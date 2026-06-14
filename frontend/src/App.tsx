@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api, startOfToday } from "./api/client";
 import { useArticles, usePeople, useStats } from "./hooks/useData";
 import type { Article, Person, Tab } from "./types";
@@ -26,13 +26,13 @@ export default function App() {
   const [scraping, setScraping] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState<string | null>(null);
 
-  const today = startOfToday();
+  const since24h = useMemo(() => startOfToday(), []);
   const { stats, loading: statsLoading, refresh: refreshStats } = useStats();
   const {
     people: todayPeople,
     loading: todayLoading,
     refresh: refreshToday,
-  } = usePeople(today);
+  } = usePeople(since24h);
   const {
     people: allPeople,
     loading: peopleLoading,
@@ -143,7 +143,7 @@ export default function App() {
               <h2>Names in the news</h2>
               <span className="section-date">Last 24 hours · {todayLabel()}</span>
             </div>
-            {todayLoading ? (
+            {todayLoading && todayPeople.length === 0 ? (
               <p className="empty">Loading today's names…</p>
             ) : todayPeople.length === 0 ? (
               <div className="empty-state">
@@ -178,7 +178,7 @@ export default function App() {
               <h2>All people</h2>
               <span className="section-count">{displayPeople.length} records</span>
             </div>
-            {peopleLoadingState ? (
+            {peopleLoadingState && displayPeople.length === 0 ? (
               <p className="empty">Loading…</p>
             ) : displayPeople.length === 0 ? (
               <p className="empty">No people found{search ? ` for "${search}"` : ""}.</p>
@@ -202,7 +202,7 @@ export default function App() {
               <h2>Recent articles</h2>
               <span className="section-count">{articles.length} articles</span>
             </div>
-            {articlesLoading ? (
+            {articlesLoading && articles.length === 0 ? (
               <p className="empty">Loading articles…</p>
             ) : articles.length === 0 ? (
               <p className="empty">No articles yet. Run a scrape to get started.</p>
