@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "./api/client";
 import { useArticles, usePeople, useStats } from "./hooks/useData";
 import type { Article, Person, PipelineResult, Tab } from "./types";
@@ -50,6 +50,8 @@ export default function App() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [scraping, setScraping] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
+  const [bulkReviewing, setBulkReviewing] = useState(false);
+  const [selectedReviewIds, setSelectedReviewIds] = useState<Set<number>>(new Set());
   const [scrapeMsg, setScrapeMsg] = useState<string | null>(null);
 
   const { stats, loading: statsLoading, refresh: refreshStats } = useStats();
@@ -71,7 +73,7 @@ export default function App() {
     people: reviewPeople,
     loading: reviewLoading,
     refresh: refreshReview,
-  } = usePeople({ review_status: "pending", enabled: tab === "review" });
+  } = usePeople({ review_status: "pending", enabled: tab === "review", limit: 200 });
   const {
     articles,
     loading: articlesLoading,
@@ -162,6 +164,11 @@ export default function App() {
     try {
       const updated = await api.reviewPerson(selectedPerson.id, status);
       setSelectedPerson(updated);
+      setSelectedReviewIds((prev) => {
+        const next = new Set(prev);
+        next.delete(updated.id);
+        return next;
+      });
       refreshAll();
       setScrapeMsg(
         status === "confirmed"
@@ -173,10 +180,72 @@ export default function App() {
     }
   };
 
+  const toggleReviewSelection = (id: number, selected: boolean) => {
+    setSelectedReviewIds((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const handleBulkReview = async (
+    ids: number[],
+    status: "confirmed" | "rejected",
+    label: string
+  ) => {
+    if (ids.length === 0) return;
+    if (
+      status === "rejected" &&
+      ids.length > 1 &&
+      !window.confirm(`Reject ${ids.length} names? They will be hidden from the people list.`)
+    ) {
+      return;
+    }
+
+    setBulkReviewing(true);
+    try {
+      const result = await api.bulkReviewPeople(ids, status);
+      setSelectedReviewIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      if (selectedPerson && ids.includes(selectedPerson.id)) {
+        setSelectedPerson(null);
+      }
+      refreshAll();
+      const note = result.not_found.length ? ` (${result.not_found.length} not found)` : "";
+      setScrapeMsg(`${label}: ${result.updated} name${result.updated === 1 ? "" : "s"}${note}`);
+    } catch (e) {
+      setScrapeMsg(e instanceof Error ? e.message : "Bulk review failed");
+    } finally {
+      setBulkReviewing(false);
+    }
+  };
+
+  const allReviewSelected =
+    reviewPeople.length > 0 && reviewPeople.every((p) => selectedReviewIds.has(p.id));
+  const someReviewSelected = reviewPeople.some((p) => selectedReviewIds.has(p.id));
+
+  useEffect(() => {
+    if (tab !== "review") {
+      setSelectedReviewIds(new Set());
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    setSelectedReviewIds((prev) => {
+      const valid = new Set(reviewPeople.map((p) => p.id));
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [reviewPeople]);
+
   const displayPeople = tab === "today" ? todayPeople : tab === "review" ? reviewPeople : allPeople;
   const peopleLoadingState =
     tab === "today" ? todayLoading : tab === "review" ? reviewLoading : peopleLoading;
-  const busy = scraping || reprocessing;
+  const busy = scraping || reprocessing || bulkReviewing;
 
   return (
     <div className="app">
@@ -332,15 +401,99 @@ export default function App() {
                 </p>
               </div>
             ) : (
-              <div className="people-grid">
-                {reviewPeople.map((person) => (
-                  <PersonCard
-                    key={person.id}
-                    person={person}
-                    onClick={() => setSelectedPerson(person)}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="bulk-review-bar">
+                  <label className="bulk-review-select-all">
+                    <input
+                      type="checkbox"
+                      checked={allReviewSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someReviewSelected && !allReviewSelected;
+                      }}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedReviewIds(new Set(reviewPeople.map((p) => p.id)));
+                        } else {
+                          setSelectedReviewIds(new Set());
+                        }
+                      }}
+                      disabled={bulkReviewing}
+                    />
+                    Select all
+                  </label>
+                  <span className="bulk-review-count">
+                    {selectedReviewIds.size > 0
+                      ? `${selectedReviewIds.size} selected`
+                      : "Select names to review in bulk"}
+                  </span>
+                  <div className="bulk-review-actions">
+                    <button
+                      className="btn btn--primary btn--small"
+                      disabled={selectedReviewIds.size === 0 || bulkReviewing}
+                      onClick={() =>
+                        handleBulkReview(
+                          [...selectedReviewIds],
+                          "confirmed",
+                          "Confirmed"
+                        )
+                      }
+                    >
+                      Confirm selected
+                    </button>
+                    <button
+                      className="btn btn--ghost btn--small"
+                      disabled={selectedReviewIds.size === 0 || bulkReviewing}
+                      onClick={() =>
+                        handleBulkReview(
+                          [...selectedReviewIds],
+                          "rejected",
+                          "Rejected"
+                        )
+                      }
+                    >
+                      Reject selected
+                    </button>
+                    <button
+                      className="btn btn--outline btn--small"
+                      disabled={bulkReviewing}
+                      onClick={() =>
+                        handleBulkReview(
+                          reviewPeople.map((p) => p.id),
+                          "confirmed",
+                          "Confirmed all"
+                        )
+                      }
+                    >
+                      Confirm all
+                    </button>
+                    <button
+                      className="btn btn--ghost btn--small"
+                      disabled={bulkReviewing}
+                      onClick={() =>
+                        handleBulkReview(
+                          reviewPeople.map((p) => p.id),
+                          "rejected",
+                          "Rejected all"
+                        )
+                      }
+                    >
+                      Reject all
+                    </button>
+                  </div>
+                </div>
+                <div className="people-grid">
+                  {reviewPeople.map((person) => (
+                    <PersonCard
+                      key={person.id}
+                      person={person}
+                      selectable
+                      selected={selectedReviewIds.has(person.id)}
+                      onSelect={(selected) => toggleReviewSelection(person.id, selected)}
+                      onClick={() => setSelectedPerson(person)}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </section>
         )}

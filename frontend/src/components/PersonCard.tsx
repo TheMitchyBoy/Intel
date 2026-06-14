@@ -19,13 +19,29 @@ interface Props {
   person: Person;
   onClick?: () => void;
   compact?: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: (selected: boolean) => void;
 }
 
-export function PersonCard({ person, onClick, compact }: Props) {
+export function PersonCard({ person, onClick, compact, selectable, selected, onSelect }: Props) {
   const articleCount = person.article_count ?? person.articles?.length ?? 1;
 
   return (
-    <article className={`person-card${compact ? " person-card--compact" : ""}`} onClick={onClick}>
+    <article
+      className={`person-card${compact ? " person-card--compact" : ""}${selected ? " person-card--selected" : ""}`}
+      onClick={onClick}
+    >
+      {selectable && (
+        <label className="person-select" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selected ?? false}
+            onChange={(e) => onSelect?.(e.target.checked)}
+            aria-label={`Select ${person.full_name}`}
+          />
+        </label>
+      )}
       <div className="person-avatar">{initials(person.full_name)}</div>
       <div className="person-body">
         <h3 className="person-name">{person.full_name}</h3>

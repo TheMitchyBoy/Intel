@@ -125,6 +125,16 @@ class ReviewRequest(BaseModel):
     status: str
 
 
+class BulkReviewRequest(BaseModel):
+    ids: list[int]
+    status: str
+
+
+class BulkReviewResponse(BaseModel):
+    updated: int
+    not_found: list[int] = []
+
+
 class StatsResponse(BaseModel):
     total_articles: int
     total_people: int
@@ -239,6 +249,14 @@ def list_people(
         limit=limit,
         offset=offset,
     )
+
+
+@app.post("/api/v1/people/review/bulk", response_model=BulkReviewResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
+def bulk_review_people(body: BulkReviewRequest, db: Session = Depends(get_db)):
+    try:
+        return contacts.bulk_set_contact_review_status(db, body.ids, body.status)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.post("/api/v1/people/{contact_id}/review", response_model=PersonResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])

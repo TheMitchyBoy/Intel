@@ -50,6 +50,11 @@ export interface PeopleQuery {
   min_confidence?: number;
 }
 
+export interface BulkReviewResult {
+  updated: number;
+  not_found: number[];
+}
+
 export interface ArticlesQuery {
   source?: string;
   since?: string;
@@ -90,6 +95,12 @@ export const api = {
     request<Person>(`/api/v1/people/${id}/review`, {
       method: "POST",
       body: JSON.stringify({ status }),
+    }),
+
+  bulkReviewPeople: (ids: number[], status: "confirmed" | "rejected" | "pending") =>
+    request<BulkReviewResult>("/api/v1/people/review/bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids, status }),
     }),
 
   triggerReprocess: () =>

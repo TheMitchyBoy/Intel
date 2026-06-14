@@ -210,6 +210,30 @@ def set_contact_review_status(db: Session, contact_id: int, status: str) -> dict
     return contact_to_dict(contact)
 
 
+def bulk_set_contact_review_status(
+    db: Session,
+    contact_ids: list[int],
+    status: str,
+) -> dict:
+    if status not in {"pending", "confirmed", "rejected"}:
+        raise ValueError(f"Invalid review status: {status}")
+    if not contact_ids:
+        return {"updated": 0, "not_found": []}
+
+    unique_ids = list(dict.fromkeys(contact_ids))
+    contacts = db.query(Contact).filter(Contact.id.in_(unique_ids)).all()
+    found_ids = {c.id for c in contacts}
+    not_found = [cid for cid in unique_ids if cid not in found_ids]
+
+    now = datetime.utcnow()
+    for contact in contacts:
+        contact.review_status = status
+        contact.updated_at = now
+
+    db.commit()
+    return {"updated": len(contacts), "not_found": not_found}
+
+
 def count_contacts(db: Session, *, since: datetime | None = None, review_status: str | None = None) -> int:
     query = db.query(Contact)
     if review_status:
