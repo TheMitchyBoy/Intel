@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../api/client";
+import { api, type ArticlesQuery, type PeopleQuery } from "../api/client";
 import type { Article, Person, Stats } from "../types";
 
 export function useStats() {
@@ -25,13 +25,23 @@ export function useStats() {
   return { stats, loading, error, refresh };
 }
 
-export function usePeople(since?: string, name?: string) {
+export function usePeople(query: PeopleQuery & { enabled?: boolean } = {}) {
+  const { enabled = true, ...params } = query;
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
 
+  const name = params.name;
+  const hours = params.hours;
+  const since = params.since;
+
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function load() {
@@ -40,7 +50,7 @@ export function usePeople(since?: string, name?: string) {
       }
       setError(null);
       try {
-        const data = await api.getPeople({ since, name, limit: 200 });
+        const data = await api.getPeople({ ...params, limit: params.limit ?? 200 });
         if (!cancelled) {
           setPeople(data);
           hasLoaded.current = true;
@@ -60,30 +70,40 @@ export function usePeople(since?: string, name?: string) {
     return () => {
       cancelled = true;
     };
-  }, [since, name]);
+  }, [enabled, name, hours, since]);
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
     setError(null);
     try {
-      setPeople(await api.getPeople({ since, name, limit: 200 }));
+      setPeople(await api.getPeople({ ...params, limit: params.limit ?? 200 }));
       hasLoaded.current = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load people");
     } finally {
       setLoading(false);
     }
-  }, [since, name]);
+  }, [enabled, name, hours, since]);
 
   return { people, loading, error, refresh };
 }
 
-export function useArticles(since?: string) {
+export function useArticles(query: ArticlesQuery & { enabled?: boolean } = {}) {
+  const { enabled = true, ...params } = query;
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
 
+  const hours = params.hours;
+  const since = params.since;
+
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function load() {
@@ -92,7 +112,7 @@ export function useArticles(since?: string) {
       }
       setError(null);
       try {
-        const data = await api.getArticles({ since, limit: 100 });
+        const data = await api.getArticles({ ...params, limit: params.limit ?? 100 });
         if (!cancelled) {
           setArticles(data);
           hasLoaded.current = true;
@@ -112,19 +132,20 @@ export function useArticles(since?: string) {
     return () => {
       cancelled = true;
     };
-  }, [since]);
+  }, [enabled, hours, since]);
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
     setError(null);
     try {
-      setArticles(await api.getArticles({ since, limit: 100 }));
+      setArticles(await api.getArticles({ ...params, limit: params.limit ?? 100 }));
       hasLoaded.current = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load articles");
     } finally {
       setLoading(false);
     }
-  }, [since]);
+  }, [enabled, hours, since]);
 
   return { articles, loading, error, refresh };
 }

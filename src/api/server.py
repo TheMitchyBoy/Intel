@@ -59,6 +59,14 @@ def require_database():
     return True
 
 
+def _since_from_params(since: Optional[datetime], hours: Optional[int]) -> Optional[datetime]:
+    if since is not None:
+        return since
+    if hours is not None:
+        return datetime.utcnow() - timedelta(hours=hours)
+    return None
+
+
 class PersonResponse(BaseModel):
     id: int
     article_id: int
@@ -130,11 +138,13 @@ def list_articles(
     source: Optional[str] = None,
     region: Optional[str] = None,
     since: Optional[datetime] = None,
+    hours: Optional[int] = Query(None, ge=1, le=168),
     limit: int = Query(50, le=200),
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    articles = get_articles(db, source=source, region=region, since=since, limit=limit, offset=offset)
+    since_cutoff = _since_from_params(since, hours)
+    articles = get_articles(db, source=source, region=region, since=since_cutoff, limit=limit, offset=offset)
     return [a.to_dict() for a in articles]
 
 
@@ -150,11 +160,13 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
 def list_people(
     name: Optional[str] = None,
     since: Optional[datetime] = None,
+    hours: Optional[int] = Query(None, ge=1, le=168),
     limit: int = Query(50, le=200),
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    people = get_people(db, name=name, since=since, limit=limit, offset=offset)
+    since_cutoff = _since_from_params(since, hours)
+    people = get_people(db, name=name, since=since_cutoff, limit=limit, offset=offset)
     return [p.to_dict() for p in people]
 
 

@@ -22,15 +22,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export function last24Hours(): string {
-  return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-}
-
-/** @deprecated use last24Hours — kept for compatibility */
-export function startOfToday(): string {
-  return last24Hours();
-}
-
 export function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString(undefined, {
@@ -50,13 +41,28 @@ export function formatTime(iso: string | null): string {
   });
 }
 
+export interface PeopleQuery {
+  name?: string;
+  since?: string;
+  hours?: number;
+  limit?: number;
+}
+
+export interface ArticlesQuery {
+  source?: string;
+  since?: string;
+  hours?: number;
+  limit?: number;
+}
+
 export const api = {
   getStats: () => request<Stats>("/api/v1/stats"),
 
-  getPeople: (params?: { name?: string; since?: string; limit?: number }) => {
+  getPeople: (params?: PeopleQuery) => {
     const q = new URLSearchParams();
     if (params?.name) q.set("name", params.name);
     if (params?.since) q.set("since", params.since);
+    if (params?.hours) q.set("hours", String(params.hours));
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return request<Person[]>(`/api/v1/people${qs ? `?${qs}` : ""}`);
@@ -64,10 +70,11 @@ export const api = {
 
   getPerson: (id: number) => request<Person>(`/api/v1/people/${id}`),
 
-  getArticles: (params?: { source?: string; since?: string; limit?: number }) => {
+  getArticles: (params?: ArticlesQuery) => {
     const q = new URLSearchParams();
     if (params?.source) q.set("source", params.source);
     if (params?.since) q.set("since", params.since);
+    if (params?.hours) q.set("hours", String(params.hours));
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return request<Article[]>(`/api/v1/articles${qs ? `?${qs}` : ""}`);

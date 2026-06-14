@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { api, startOfToday } from "./api/client";
+import { useState } from "react";
+import { api } from "./api/client";
 import { useArticles, usePeople, useStats } from "./hooks/useData";
 import type { Article, Person, Tab } from "./types";
 import { StatsCards } from "./components/StatsCards";
@@ -26,23 +26,22 @@ export default function App() {
   const [scraping, setScraping] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState<string | null>(null);
 
-  const since24h = useMemo(() => startOfToday(), []);
   const { stats, loading: statsLoading, refresh: refreshStats } = useStats();
   const {
     people: todayPeople,
     loading: todayLoading,
     refresh: refreshToday,
-  } = usePeople(since24h);
+  } = usePeople({ hours: 24, enabled: tab === "today" });
   const {
     people: allPeople,
     loading: peopleLoading,
     refresh: refreshPeople,
-  } = usePeople(undefined, search || undefined);
+  } = usePeople({ name: search || undefined, enabled: tab === "people" });
   const {
     articles,
     loading: articlesLoading,
     refresh: refreshArticles,
-  } = useArticles(undefined);
+  } = useArticles({ enabled: tab === "articles" });
 
   const refreshAll = () => {
     refreshStats();
