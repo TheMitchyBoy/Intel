@@ -161,14 +161,25 @@ export default function App() {
 
   const handleReview = async (status: "confirmed" | "rejected") => {
     if (!selectedPerson) return;
+    if (
+      status === "rejected" &&
+      selectedPerson.review_status === "confirmed" &&
+      !window.confirm(`Reject ${selectedPerson.full_name}? This name was already approved.`)
+    ) {
+      return;
+    }
     try {
       const updated = await api.reviewPerson(selectedPerson.id, status);
-      setSelectedPerson(updated);
       setSelectedReviewIds((prev) => {
         const next = new Set(prev);
         next.delete(updated.id);
         return next;
       });
+      if (status === "rejected") {
+        setSelectedPerson(null);
+      } else {
+        setSelectedPerson(updated);
+      }
       refreshAll();
       setScrapeMsg(
         status === "confirmed"
@@ -526,7 +537,7 @@ export default function App() {
       <PersonDetail
         person={selectedPerson}
         onClose={() => setSelectedPerson(null)}
-        onReview={tab === "review" || selectedPerson?.review_status === "pending" ? handleReview : undefined}
+        onReview={selectedPerson?.review_status !== "rejected" ? handleReview : undefined}
       />
       <ArticleDetail article={selectedArticle} onClose={() => setSelectedArticle(null)} />
     </div>

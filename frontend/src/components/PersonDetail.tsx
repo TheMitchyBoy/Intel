@@ -58,13 +58,15 @@ export function PersonDetail({ person, onClose, onReview }: Props) {
           <dd>{person.mention_count}</dd>
         </dl>
 
-        {onReview && person.review_status === "pending" && (
+        {onReview && person.review_status !== "rejected" && (
           <div className="review-actions">
-            <button className="btn btn--primary" onClick={() => onReview("confirmed")}>
-              Confirm
-            </button>
+            {person.review_status === "pending" && (
+              <button className="btn btn--primary" onClick={() => onReview("confirmed")}>
+                Confirm
+              </button>
+            )}
             <button className="btn btn--ghost" onClick={() => onReview("rejected")}>
-              Reject
+              {person.review_status === "confirmed" ? "Reject approved name" : "Reject"}
             </button>
           </div>
         )}
