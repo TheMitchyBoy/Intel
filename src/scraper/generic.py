@@ -46,6 +46,12 @@ class RSSScraper(BaseScraper):
                     pass
 
             content = self._extract_content(entry, link)
+            author = ""
+            if entry.get("author"):
+                author = str(entry.author).strip()
+            elif getattr(entry, "author_detail", None):
+                author = (entry.author_detail.get("name") or "").strip()
+
             articles.append(
                 ScrapedArticle(
                     title=title,
@@ -54,6 +60,7 @@ class RSSScraper(BaseScraper):
                     published_at=published_at,
                     source_name=self.name,
                     region=self.region,
+                    author=author,
                 )
             )
             if delay:
@@ -74,11 +81,27 @@ class RSSScraper(BaseScraper):
         return True
 
     def _extract_content(self, entry, link: str) -> str:
+        parts: list[str] = []
+
+        if entry.get("author"):
+            parts.append(str(entry.author))
+        if getattr(entry, "author_detail", None) and entry.author_detail.get("name"):
+            parts.append(entry.author_detail.name)
+
         if entry.get("content"):
-            return BeautifulSoup(entry.content[0].value, "lxml").get_text(separator=" ", strip=True)
-        if entry.get("summary"):
-            return BeautifulSoup(entry.summary, "lxml").get_text(separator=" ", strip=True)
-        return self._fetch_page_content(link)
+            parts.append(
+                BeautifulSoup(entry.content[0].value, "lxml").get_text(separator=" ", strip=True)
+            )
+        elif entry.get("summary"):
+            parts.append(BeautifulSoup(entry.summary, "lxml").get_text(separator=" ", strip=True))
+
+        rss_text = " ".join(parts).strip()
+
+        # Always try to fetch the full article — RSS summaries are too short for name extraction
+        page_text = self._fetch_page_content(link)
+        if len(page_text) > len(rss_text):
+            return f"{rss_text} {page_text}".strip() if rss_text else page_text
+        return rss_text or page_text
 
     def _content_selector(self) -> str:
         selectors = self.config.get("selectors", {})

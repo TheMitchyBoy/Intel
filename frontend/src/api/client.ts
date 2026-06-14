@@ -22,10 +22,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export function last24Hours(): string {
+  return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** @deprecated use last24Hours — kept for compatibility */
 export function startOfToday(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+  return last24Hours();
 }
 
 export function formatDate(iso: string | null): string {

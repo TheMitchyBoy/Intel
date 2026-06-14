@@ -32,12 +32,27 @@ def run_pipeline(db: Session) -> dict:
             found = len(articles)
 
             for article in articles:
-                if crud.get_article_by_url(db, article.url):
+                existing = crud.get_article_by_url(db, article.url)
+                content = article.content or article.title
+                author = article.author or ""
+
+                if existing:
+                    # Re-extract names if article was saved without people (e.g. earlier bug)
+                    if not existing.people:
+                        people = extract_names(article.title, content, author=author)
+                        for person in people:
+                            crud.create_person(
+                                db,
+                                article_id=existing.id,
+                                full_name=person["full_name"],
+                                role_context=person.get("role_context", ""),
+                                mention_count=person.get("mention_count", 1),
+                            )
+                            totals["people"] += 1
                     continue
 
-                content = article.content or article.title
                 summary = summarize_article(article.title, content)
-                people = extract_names(article.title, content)
+                people = extract_names(article.title, content, author=author)
 
                 db_article = crud.create_article(
                     db,

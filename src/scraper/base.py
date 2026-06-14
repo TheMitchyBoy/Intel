@@ -11,6 +11,7 @@ class ScrapedArticle:
     published_at: datetime | None = None
     source_name: str = ""
     region: str = ""
+    author: str = ""
 
 
 class BaseScraper(ABC):

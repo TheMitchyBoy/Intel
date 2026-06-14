@@ -135,16 +135,22 @@ export default function App() {
         {tab === "today" && (
           <section className="section">
             <div className="section-header">
-              <h2>Names in the news today</h2>
-              <span className="section-date">{todayLabel()}</span>
+              <h2>Names in the news</h2>
+              <span className="section-date">Last 24 hours · {todayLabel()}</span>
             </div>
             {todayLoading ? (
               <p className="empty">Loading today's names…</p>
             ) : todayPeople.length === 0 ? (
               <div className="empty-state">
-                <p>No names found in today's news yet.</p>
+                <p>No names found in the last 24 hours.</p>
                 <p className="empty-hint">
-                  Run a scrape to pull the latest from Ketchikan Daily News.
+                  Click <strong>Run scrape</strong> to pull Ketchikan Daily News.
+                  {allPeople.length > 0 && (
+                    <> Older names are in the <strong>All people</strong> tab.</>
+                  )}
+                  {!stats?.total_articles && (
+                    <> Make sure <code>OPENAI_API_KEY</code> is set on Railway for best results.</>
+                  )}
                 </p>
               </div>
             ) : (
