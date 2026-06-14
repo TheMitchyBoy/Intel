@@ -39,3 +39,9 @@ export interface PipelineResult {
 }
 
 export type Tab = "today" | "people" | "articles";
+
+declare global {
+  interface Window {
+    __INTEL_API_KEY__?: string;
+  }
+}

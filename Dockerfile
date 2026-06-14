@@ -26,4 +26,8 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 COPY --from=frontend-build /frontend/dist /app/static
 
+RUN chmod +x /app/start.sh
+
 ENV PYTHONPATH=/app
+
+CMD ["/app/start.sh"]

@@ -188,3 +188,16 @@ python -m src.main serve       # Start API server
 | `SCRAPE_INTERVAL_HOURS` | `6` | Hours between scheduled scrapes |
 | `CRM_WEBHOOK_URL` | — | Optional webhook for push notifications |
 | `CRM_WEBHOOK_SECRET` | — | HMAC secret for webhook verification |
+| `PORT` | `8000` | HTTP port (set automatically on Railway) |
+
+## Deploy on Railway
+
+See **[RAILWAY.md](RAILWAY.md)** for full instructions.
+
+1. Connect this GitHub repo on [railway.app](https://railway.app)
+2. Add a **PostgreSQL** database plugin
+3. Set `OPENAI_API_KEY` and `API_KEY` environment variables
+4. Link `DATABASE_URL` from Postgres to the web service
+5. Deploy — your CRM is live at your Railway URL
+
+Optionally add a **worker** service with start command `python -m src.main scheduler` for automatic scraping.

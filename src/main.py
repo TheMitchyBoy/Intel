@@ -62,7 +62,8 @@ def scheduler():
 def serve():
     """Start the API server."""
     import uvicorn
-    uvicorn.run("src.api.server:app", host=settings.api_host, port=settings.api_port, reload=False)
+
+    uvicorn.run("src.api.server:app", host=settings.api_host, port=settings.port, reload=False)
 
 
 if __name__ == "__main__":

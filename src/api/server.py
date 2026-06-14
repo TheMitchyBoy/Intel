@@ -1,3 +1,4 @@
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -5,7 +6,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -176,13 +177,24 @@ def _mount_frontend(app: FastAPI) -> None:
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
+    def _spa_index() -> HTMLResponse:
+        index = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+        script = (
+            f"<script>window.__INTEL_API_KEY__={json.dumps(settings.api_key)};</script>"
+        )
+        if "</head>" in index:
+            index = index.replace("</head>", f"{script}</head>", 1)
+        else:
+            index = script + index
+        return HTMLResponse(index)
+
     @app.get("/favicon.svg", include_in_schema=False)
     def favicon():
         return FileResponse(STATIC_DIR / "favicon.svg")
 
     @app.get("/", include_in_schema=False)
     def spa_root():
-        return FileResponse(STATIC_DIR / "index.html")
+        return _spa_index()
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa_fallback(path: str):
@@ -191,7 +203,7 @@ def _mount_frontend(app: FastAPI) -> None:
         file_path = STATIC_DIR / path
         if file_path.is_file():
             return FileResponse(file_path)
-        return FileResponse(STATIC_DIR / "index.html")
+        return _spa_index()
 
 
 _mount_frontend(app)
