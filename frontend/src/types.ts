@@ -42,10 +42,12 @@ export interface PipelineResult {
 export interface ScrapeTriggerResponse {
   status: string;
   message: string;
+  run_id: number | null;
 }
 
 export interface ScrapeStatusResponse {
   running: boolean;
+  run_id: number | null;
   result: PipelineResult | null;
   error: string | null;
 }

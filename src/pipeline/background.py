@@ -1,54 +1,75 @@
-"""Run scrape pipeline in a background thread so HTTP requests don't time out."""
+"""Run scrape pipeline in a background thread with DB-backed status."""
 
+import json
 import logging
 import threading
-from typing import Any, Optional
+from typing import Any
 
+from src.database import crud
 from src.database.models import get_session_factory
 from src.pipeline.runner import run_pipeline
 
 logger = logging.getLogger(__name__)
 
-_lock = threading.Lock()
-_running = False
-_result: Optional[dict[str, Any]] = None
-_error: Optional[str] = None
+
+def _pipeline_result_from_run(run) -> dict[str, Any]:
+    if run.result_json:
+        try:
+            return json.loads(run.result_json)
+        except json.JSONDecodeError:
+            pass
+    return {}
 
 
-def scrape_status() -> dict[str, Any]:
-    with _lock:
+def scrape_status(run_id: int | None = None) -> dict[str, Any]:
+    db = get_session_factory()()
+    try:
+        run = crud.get_pipeline_run(db, run_id) if run_id else crud.get_latest_pipeline_run(db)
+        if not run:
+            return {"running": False, "run_id": None, "result": None, "error": None}
+
+        if run.status == "running":
+            return {"running": True, "run_id": run.id, "result": None, "error": None}
+
         return {
-            "running": _running,
-            "result": _result,
-            "error": _error,
+            "running": False,
+            "run_id": run.id,
+            "result": _pipeline_result_from_run(run) or None,
+            "error": run.error_message,
         }
+    finally:
+        db.close()
 
 
-def start_background_scrape() -> dict[str, str]:
-    global _running, _result, _error
-
-    with _lock:
-        if _running:
-            return {"status": "already_running", "message": "A scrape is already in progress."}
-        _running = True
-        _result = None
-        _error = None
+def start_background_scrape() -> dict[str, Any]:
+    db = get_session_factory()()
+    try:
+        run = crud.create_pipeline_run(db)
+        if run is None:
+            latest = crud.get_latest_pipeline_run(db)
+            return {
+                "status": "already_running",
+                "message": "A scrape is already in progress.",
+                "run_id": latest.id if latest else None,
+            }
+        run_id = run.id
+    finally:
+        db.close()
 
     def _run() -> None:
-        global _running, _result, _error
         db = get_session_factory()()
         try:
             result = run_pipeline(db)
-            with _lock:
-                _result = result
+            crud.finish_pipeline_run(db, run_id, result=result)
         except Exception as exc:
-            logger.exception("Background scrape failed")
-            with _lock:
-                _error = str(exc)
+            logger.exception("Background scrape failed for run %s", run_id)
+            crud.finish_pipeline_run(db, run_id, error=str(exc))
         finally:
             db.close()
-            with _lock:
-                _running = False
 
-    threading.Thread(target=_run, daemon=True).start()
-    return {"status": "started", "message": "Scrape started in background."}
+    threading.Thread(target=_run, daemon=True, name=f"scrape-{run_id}").start()
+    return {
+        "status": "started",
+        "message": "Scrape started in background.",
+        "run_id": run_id,
+    }

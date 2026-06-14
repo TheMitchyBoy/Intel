@@ -34,20 +34,33 @@ BROWSER_HEADERS = {
 class RSSScraper(BaseScraper):
     """Scrape articles from an RSS/Atom feed."""
 
+    def __init__(self, source_config: dict, user_agent: str):
+        super().__init__(source_config, user_agent)
+        self._page_rate_limits = 0
+
     def _fetch_feed(self, url: str):
-        for attempt in range(3):
+        client = getattr(self, "_http", None)
+        for attempt in range(5):
             try:
-                with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as client:
+                if client:
                     response = client.get(url)
-                    if response.status_code == 429:
-                        wait = 2 ** attempt
-                        logger.warning("RSS rate limited for %s, retrying in %ds", url, wait)
-                        time.sleep(wait)
-                        continue
-                    response.raise_for_status()
-                    return feedparser.parse(response.text)
+                else:
+                    with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as c:
+                        response = c.get(url)
+                if response.status_code == 429:
+                    wait = min(30, 2 ** attempt)
+                    logger.warning("RSS rate limited for %s, retrying in %ds", url, wait)
+                    time.sleep(wait)
+                    continue
+                response.raise_for_status()
+                body = response.text
+                if body.lstrip().startswith("<!") and "article_" not in body[:2000]:
+                    logger.warning("RSS returned HTML for %s (attempt %d)", url, attempt + 1)
+                    time.sleep(2 ** attempt)
+                    continue
+                return feedparser.parse(body)
             except Exception as e:
-                if attempt == 2:
+                if attempt == 4:
                     logger.warning("RSS httpx fetch failed for %s: %s — trying feedparser fallback", url, e)
                     return feedparser.parse(url, agent=BROWSER_USER_AGENT)
                 time.sleep(2 ** attempt)
@@ -56,55 +69,58 @@ class RSSScraper(BaseScraper):
     def scrape(self) -> list[ScrapedArticle]:
         url = self.config["url"]
         logger.info("Fetching RSS feed: %s", url)
+        self._page_rate_limits = 0
 
-        feed = self._fetch_feed(url)
+        with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as client:
+            self._http = client
+            feed = self._fetch_feed(url)
 
-        if feed.bozo and not feed.entries:
-            logger.warning(
-                "RSS feed failed for %s: %s (got HTML or rate-limited?)",
-                self.name,
-                getattr(feed, "bozo_exception", "unknown"),
-            )
-            return []
-
-        articles: list[ScrapedArticle] = []
-
-        for entry in feed.entries:
-            title = entry.get("title", "").strip()
-            link = entry.get("link", "").strip()
-            if not title or not link:
-                continue
-            if not self._passes_url_filters(link):
-                continue
-
-            published_at = None
-            if entry.get("published"):
-                try:
-                    published_at = parsedate_to_datetime(entry.published)
-                except (ValueError, TypeError):
-                    pass
-
-            content = self._extract_content(entry, link)
-            author = ""
-            if entry.get("author"):
-                author = str(entry.author).strip()
-            elif getattr(entry, "author_detail", None):
-                author = (entry.author_detail.get("name") or "").strip()
-
-            articles.append(
-                ScrapedArticle(
-                    title=title,
-                    url=link,
-                    content=content,
-                    published_at=published_at,
-                    source_name=self.name,
-                    region=self.region,
-                    author=author,
+            if feed.bozo and not feed.entries:
+                logger.warning(
+                    "RSS feed failed for %s: %s (got HTML or rate-limited?)",
+                    self.name,
+                    getattr(feed, "bozo_exception", "unknown"),
                 )
-            )
+                return []
 
-        logger.info("Found %d articles from RSS: %s", len(articles), self.name)
-        return articles
+            articles: list[ScrapedArticle] = []
+
+            for entry in feed.entries:
+                title = entry.get("title", "").strip()
+                link = entry.get("link", "").strip()
+                if not title or not link:
+                    continue
+                if not self._passes_url_filters(link):
+                    continue
+
+                published_at = None
+                if entry.get("published"):
+                    try:
+                        published_at = parsedate_to_datetime(entry.published)
+                    except (ValueError, TypeError):
+                        pass
+
+                content = self._extract_content(entry, link)
+                author = ""
+                if entry.get("author"):
+                    author = str(entry.author).strip()
+                elif getattr(entry, "author_detail", None):
+                    author = (entry.author_detail.get("name") or "").strip()
+
+                articles.append(
+                    ScrapedArticle(
+                        title=title,
+                        url=link,
+                        content=content,
+                        published_at=published_at,
+                        source_name=self.name,
+                        region=self.region,
+                        author=author,
+                    )
+                )
+
+            logger.info("Found %d articles from RSS: %s", len(articles), self.name)
+            return articles
 
     def _passes_url_filters(self, link: str) -> bool:
         filters = self.config.get("filters", {})
@@ -134,7 +150,10 @@ class RSSScraper(BaseScraper):
 
         rss_text = " ".join(parts).strip()
 
-        # Always try to fetch the full article — RSS summaries are too short for name extraction
+        fetch_full = self.config.get("fetch_full_pages", False)
+        if not fetch_full or self._page_rate_limits >= 2:
+            return rss_text
+
         page_text = self._fetch_page_content(link)
         if len(page_text) > len(rss_text):
             return f"{rss_text} {page_text}".strip() if rss_text else page_text
@@ -149,22 +168,27 @@ class RSSScraper(BaseScraper):
         if delay:
             time.sleep(delay)
         try:
-            with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as client:
+            client = getattr(self, "_http", None)
+            if client:
                 response = client.get(url)
-                if response.status_code == 429:
-                    logger.warning("Rate limited fetching %s", url)
-                    return ""
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, "lxml")
-                for tag in soup(["script", "style", "nav", "footer", "header"]):
-                    tag.decompose()
+            else:
+                with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as c:
+                    response = c.get(url)
+            if response.status_code == 429:
+                self._page_rate_limits += 1
+                logger.warning("Rate limited fetching %s (%d strikes)", url, self._page_rate_limits)
+                return ""
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "lxml")
+            for tag in soup(["script", "style", "nav", "footer", "header"]):
+                tag.decompose()
 
-                content_el = soup.select_one(self._content_selector())
-                if content_el:
-                    return content_el.get_text(separator=" ", strip=True)
+            content_el = soup.select_one(self._content_selector())
+            if content_el:
+                return content_el.get_text(separator=" ", strip=True)
 
-                paragraphs = soup.find_all("p")
-                return " ".join(p.get_text(strip=True) for p in paragraphs[:20])
+            paragraphs = soup.find_all("p")
+            return " ".join(p.get_text(strip=True) for p in paragraphs[:20])
         except Exception as e:
             logger.warning("Failed to fetch full content from %s: %s", url, e)
             return ""

@@ -60,10 +60,13 @@ export default function App() {
         return;
       }
 
-      setScrapeMsg("Scraping Ketchikan Daily News… (may take 1–2 minutes)");
+      const runId = trigger.run_id ?? undefined;
+      setScrapeMsg("Scraping Ketchikan Daily News… (usually under 30 seconds)");
 
-      while (true) {
-        const status = await api.getScrapeStatus();
+      await new Promise((r) => setTimeout(r, 500));
+
+      for (let i = 0; i < 120; i++) {
+        const status = await api.getScrapeStatus(runId);
         if (!status.running) {
           if (status.error) {
             setScrapeMsg(`Scrape failed: ${status.error}`);
@@ -78,12 +81,12 @@ export default function App() {
                 errNote
             );
           } else {
-            setScrapeMsg("Scrape finished but returned no result.");
+            setScrapeMsg("Scrape finished but returned no result — check Railway logs.");
           }
           break;
         }
-        await new Promise((r) => setTimeout(r, 3000));
-        refreshStats();
+        if (i % 2 === 0) refreshStats();
+        await new Promise((r) => setTimeout(r, 2000));
       }
       refreshAll();
     } catch (e) {

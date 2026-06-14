@@ -41,4 +41,5 @@ sources:
 
 scraper:
   max_articles_per_source: 15
-  request_delay_seconds: 2
+  request_delay_seconds: 1
+  fetch_full_pages: false

@@ -98,6 +98,19 @@ class ScrapeLog(Base):
     error_message = Column(Text)
 
 
+class PipelineRun(Base):
+    """Tracks a full pipeline scrape job (shared across app instances)."""
+
+    __tablename__ = "pipeline_runs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    finished_at = Column(DateTime)
+    status = Column(String(50), default="running", nullable=False, index=True)
+    result_json = Column(Text)
+    error_message = Column(Text)
+
+
 @lru_cache
 def get_engine() -> Engine:
     settings.validate_database_config()

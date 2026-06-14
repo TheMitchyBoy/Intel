@@ -34,4 +34,8 @@ def load_scraper_config() -> dict:
 
 def get_all_scrapers() -> list[BaseScraper]:
     sources = load_sources()
-    return [create_scraper(source, settings.user_agent) for source in sources]
+    global_config = load_scraper_config()
+    return [
+        create_scraper({**global_config, **source}, settings.user_agent)
+        for source in sources
+    ]

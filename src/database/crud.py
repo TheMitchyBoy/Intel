@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from src.database.models import Article, Person, ScrapeLog
+from src.database.models import Article, Person, PipelineRun, ScrapeLog
 
 
 def get_article_by_url(db: Session, url: str) -> Article | None:
@@ -120,3 +120,56 @@ def finish_scrape_log(
     log.articles_new = articles_new
     log.status = status
     log.error_message = error_message
+
+
+def create_pipeline_run(db: Session) -> PipelineRun | None:
+    """Create a new pipeline run, or return None if one is already running."""
+    stale_cutoff = datetime.utcnow() - timedelta(minutes=30)
+    running = (
+        db.query(PipelineRun)
+        .filter(PipelineRun.status == "running")
+        .order_by(PipelineRun.started_at.desc())
+        .first()
+    )
+    if running:
+        if running.started_at >= stale_cutoff:
+            return None
+        running.status = "failed"
+        running.error_message = "Timed out after 30 minutes"
+        running.finished_at = datetime.utcnow()
+
+    run = PipelineRun(status="running")
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def finish_pipeline_run(
+    db: Session,
+    run_id: int,
+    *,
+    result: dict | None = None,
+    error: str | None = None,
+) -> None:
+    import json
+
+    run = db.query(PipelineRun).filter(PipelineRun.id == run_id).first()
+    if not run:
+        return
+    run.finished_at = datetime.utcnow()
+    if error:
+        run.status = "failed"
+        run.error_message = error
+    else:
+        run.status = "completed"
+        run.result_json = json.dumps(result or {})
+    db.commit()
+
+
+def get_pipeline_run(db: Session, run_id: int) -> PipelineRun | None:
+    return db.query(PipelineRun).filter(PipelineRun.id == run_id).first()
+
+
+def get_latest_pipeline_run(db: Session) -> PipelineRun | None:
+    return db.query(PipelineRun).order_by(PipelineRun.id.desc()).first()

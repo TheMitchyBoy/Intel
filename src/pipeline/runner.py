@@ -1,4 +1,5 @@
 import logging
+import time
 
 from sqlalchemy.orm import Session
 
@@ -40,7 +41,9 @@ def run_pipeline(db: Session) -> dict:
         "errors": [],
     }
 
-    for scraper in scrapers:
+    for index, scraper in enumerate(scrapers):
+        if index > 0:
+            time.sleep(10)
         totals["sources"] += 1
         log = crud.create_scrape_log(db, scraper.name)
         found = 0

@@ -85,5 +85,8 @@ export const api = {
   triggerScrape: () =>
     request<ScrapeTriggerResponse>("/api/v1/scrape", { method: "POST" }),
 
-  getScrapeStatus: () => request<ScrapeStatusResponse>("/api/v1/scrape/status"),
+  getScrapeStatus: (runId?: number) => {
+    const qs = runId ? `?run_id=${runId}` : "";
+    return request<ScrapeStatusResponse>(`/api/v1/scrape/status${qs}`);
+  },
 };

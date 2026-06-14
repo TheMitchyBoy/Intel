@@ -111,10 +111,12 @@ class PipelineResult(BaseModel):
 class ScrapeTriggerResponse(BaseModel):
     status: str
     message: str
+    run_id: Optional[int] = None
 
 
 class ScrapeStatusResponse(BaseModel):
     running: bool
+    run_id: Optional[int] = None
     result: Optional[PipelineResult] = None
     error: Optional[str] = None
 
@@ -196,9 +198,9 @@ def trigger_scrape():
 
 
 @app.get("/api/v1/scrape/status", response_model=ScrapeStatusResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
-def scrape_run_status():
+def scrape_run_status(run_id: Optional[int] = None):
     """Poll scrape progress after POST /api/v1/scrape."""
-    return scrape_status()
+    return scrape_status(run_id)
 
 
 @app.get("/api/v1/export/people", dependencies=[Depends(verify_api_key), Depends(require_database)])
