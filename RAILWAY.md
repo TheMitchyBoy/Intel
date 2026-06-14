@@ -1,102 +1,101 @@
 # Deploying Intel on Railway
 
-## Architecture
+## The problem this fixes
 
-Railway runs two services from this repo:
+If `DATABASE_URL` is set to `${{Postgres.DATABASE_URL}}` but **no Postgres service exists**, Railway resolves it to an **empty string**. The app then fails to start.
 
-| Service | Purpose | Start command |
-|---|---|---|
-| **web** | API + CRM dashboard | `Dockerfile` (default) |
-| **worker** (optional) | Scheduled scraper | `python -m src.main scheduler` |
-| **PostgreSQL** | Database | Railway plugin |
+This repo includes **Infrastructure as Code** (`.railway/railway.ts`) that provisions Postgres and wires `DATABASE_URL` automatically.
 
-## Quick setup
+## Quick setup (recommended)
 
-### 1. Create a Railway project
+### 1. Install Railway CLI
 
-1. Go to [railway.app](https://railway.app) and create a new project
-2. **Deploy from GitHub** → connect this repo (`TheMitchyBoy/Intel`)
-3. Railway will detect `railway.toml` and build from the `Dockerfile`
+```bash
+npm i -g @railway/cli
+railway login
+```
 
-### 2. Add PostgreSQL
+### 2. Link your project
 
-1. In your project, click **+ New** → **Database** → **PostgreSQL**
-2. Railway automatically sets `DATABASE_URL` on linked services
+```bash
+cd Intel
+railway link    # select your Intel project + environment
+```
 
-### 3. Set environment variables
+### 3. Provision Postgres + wire DATABASE_URL
 
-On the **web** service, add these variables:
+```bash
+railway config plan    # preview: should show "Create service Postgres"
+railway config apply   # creates Postgres and links DATABASE_URL to Intel
+```
 
-| Variable | Required | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | Yes | Your OpenAI API key |
-| `API_KEY` | Yes | Secret key for API auth (pick a strong random string) |
-| `OPENAI_MODEL` | No | Default: `gpt-4o-mini` |
-| `SCRAPE_INTERVAL_HOURS` | No | Default: `6` |
+### 4. Set required variables on Intel service
 
-> **Important:** `DATABASE_URL` must be linked from Postgres — do not type it manually.
+In Railway dashboard → **Intel** service → **Variables**:
 
-### 4. Link Postgres to web service (required)
+| Variable | Required |
+|---|---|
+| `OPENAI_API_KEY` | Yes |
+| `API_KEY` | Yes (strong random secret) |
 
-This is the most common cause of deploy failures.
-
-1. Open your **web** service (not Postgres)
-2. Go to **Variables** tab
-3. Click **+ New Variable** → **Add Reference**
-4. Select your **PostgreSQL** service
-5. Choose **`DATABASE_URL`** (or `DATABASE_PRIVATE_URL` for internal networking)
-6. Click **Add**
-
-You should see a variable like `${{Postgres.DATABASE_URL}}` in the web service variables.
+`DATABASE_URL` is set automatically by `railway config apply`.
 
 ### 5. Deploy
 
-Railway builds the Docker image (frontend + API) and starts on the assigned `PORT`.
+Push to GitHub or click **Deploy** in Railway. Open your Railway URL — the CRM dashboard loads at `/`.
 
-Your CRM dashboard will be at your Railway URL, e.g. `https://intel-production.up.railway.app`
+---
+
+## Manual setup (dashboard)
+
+If you prefer not to use the CLI:
+
+1. **+ New** → **Database** → **PostgreSQL** (name it `Postgres`)
+2. Open **Intel** service → **Variables** → **Add Reference** → Postgres → `DATABASE_URL`
+3. Set `OPENAI_API_KEY` and `API_KEY`
+4. Redeploy
+
+---
+
+## Architecture
+
+| Service | Purpose |
+|---|---|
+| **Postgres** | Managed PostgreSQL database |
+| **Intel** | API + CRM dashboard (Dockerfile) |
+| **worker** (optional) | `python -m src.main scheduler` |
 
 ## Optional: scheduled scraper worker
 
-To scrape automatically without using the dashboard button:
+1. **+ New** → same GitHub repo → name it `worker`
+2. **Start command:** `python -m src.main scheduler`
+3. Link `DATABASE_URL` from Postgres + set `OPENAI_API_KEY`, `API_KEY`
 
-1. **+ New** → **GitHub Repo** → same repo
-2. Name it `worker`
-3. Set the **Custom Start Command**: `python -m src.main scheduler`
-4. Add the same env vars (`DATABASE_URL`, `OPENAI_API_KEY`, `API_KEY`)
-5. Link the same Postgres database
+## Optional: Railway Cron
 
-## Optional: Railway Cron (alternative to worker)
+```bash
+curl -X POST https://YOUR-APP.up.railway.app/api/v1/scrape -H "X-API-Key: YOUR_API_KEY"
+```
 
-Instead of a worker, use Railway Cron to hit the scrape endpoint:
-
-1. **+ New** → **Cron Job**
-2. Schedule: `0 */6 * * *` (every 6 hours)
-3. Command:
-   ```bash
-   curl -X POST https://YOUR-APP.up.railway.app/api/v1/scrape -H "X-API-Key: YOUR_API_KEY"
-   ```
+Schedule: `0 */6 * * *`
 
 ## First run
 
-After deploy:
-
-1. Open your Railway URL — the CRM dashboard loads
-2. Click **Run scrape** to pull Ketchikan Daily News articles
-3. Check **Today's names** tab
+1. Open your Railway URL
+2. Click **Run scrape**
+3. Check **Today's names**
 
 ## Troubleshooting
 
 | Issue | Fix |
 |---|---|
-| Build fails | Check Railway build logs; ensure `frontend/package-lock.json` exists |
-| 502 / app won't start | Check deploy logs; confirm Postgres is linked and `DATABASE_URL` is set |
-| `Connection refused` to `localhost:5432` | `DATABASE_URL` not linked — see step 4 above |
-| Empty dashboard | Click **Run scrape** or add the worker/cron service |
-| `postgres://` errors | Handled automatically — app converts to `postgresql://` |
-| API key mismatch | Set `API_KEY` env var on web service; it's injected into the frontend at runtime |
+| `DATABASE_URL is empty` | Run `railway config apply` or add Postgres manually |
+| `Connection refused` to `localhost:5432` | Postgres not linked — see step 3 above |
+| Build fails | Check build logs; `frontend/package-lock.json` must exist |
+| Empty dashboard | Click **Run scrape** or add worker/cron |
+| `railway.toml` conflict | Removed — this project uses `.railway/railway.ts` instead |
 
 ## Local vs Railway
 
-- **Local Docker**: `http://localhost:8000`
-- **Railway**: your assigned `*.up.railway.app` URL
-- No separate frontend service needed — API serves the CRM on one port
+- **Local Docker:** `http://localhost:8000`
+- **Railway:** your `*.up.railway.app` URL

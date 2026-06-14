@@ -12,7 +12,9 @@ from src.config import settings
 def wait_for_db(max_attempts: int = 30, delay_seconds: int = 2) -> None:
     settings.validate_database_config()
 
-    url = settings.database_url
+    url = settings.resolved_database_url()
+    if not url:
+        settings.validate_database_config()
     print(f"Connecting to database at {url.split('@')[-1] if '@' in url else '...'}")
 
     for attempt in range(1, max_attempts + 1):

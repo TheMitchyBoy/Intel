@@ -194,10 +194,11 @@ python -m src.main serve       # Start API server
 
 See **[RAILWAY.md](RAILWAY.md)** for full instructions.
 
-1. Connect this GitHub repo on [railway.app](https://railway.app)
-2. Add a **PostgreSQL** database plugin
-3. Set `OPENAI_API_KEY` and `API_KEY` environment variables
-4. Link `DATABASE_URL` from Postgres to the web service
-5. Deploy — your CRM is live at your Railway URL
+**Provision Postgres (fixes empty DATABASE_URL):**
 
-Optionally add a **worker** service with start command `python -m src.main scheduler` for automatic scraping.
+```bash
+railway login && railway link
+railway config apply
+```
+
+Then set `OPENAI_API_KEY` and `API_KEY` on the Intel service and deploy.

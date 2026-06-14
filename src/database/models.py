@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import lru_cache
 
 from sqlalchemy import (
     Column,
@@ -10,7 +11,8 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
 )
-from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
 from src.config import settings
 
@@ -96,16 +98,23 @@ class ScrapeLog(Base):
     error_message = Column(Text)
 
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine)
+@lru_cache
+def get_engine() -> Engine:
+    settings.validate_database_config()
+    return create_engine(settings.resolved_database_url(), pool_pre_ping=True)
+
+
+@lru_cache
+def get_session_factory() -> sessionmaker[Session]:
+    return sessionmaker(bind=get_engine())
 
 
 def init_db() -> None:
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())
 
 
 def get_db():
-    db = SessionLocal()
+    db = get_session_factory()()
     try:
         yield db
     finally:

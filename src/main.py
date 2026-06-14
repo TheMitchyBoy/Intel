@@ -6,7 +6,7 @@ import typer
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from src.config import settings
-from src.database.models import SessionLocal, init_db
+from src.database.models import get_session_factory, init_db
 from src.pipeline.runner import run_pipeline
 
 logging.basicConfig(
@@ -29,7 +29,7 @@ def init():
 def scrape():
     """Run a single scrape cycle."""
     init_db()
-    db = SessionLocal()
+    db = get_session_factory()()
     try:
         result = run_pipeline(db)
         typer.echo(f"Done: {result['new']} new articles, {result['people']} people found.")
@@ -46,7 +46,7 @@ def scheduler():
     sched = BlockingScheduler()
 
     def job():
-        db = SessionLocal()
+        db = get_session_factory()()
         try:
             result = run_pipeline(db)
             logger.info("Scheduled scrape complete: %s", result)
