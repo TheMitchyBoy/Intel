@@ -1,6 +1,6 @@
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -15,7 +15,7 @@ from src.config import settings
 from src.database.crud import get_article_by_id, get_articles, get_people, get_person_by_id, get_stats
 from src.database.models import get_db, init_db
 from src.database.url import database_setup_error
-from src.pipeline.runner import run_pipeline
+from src.pipeline.background import scrape_status, start_background_scrape
 
 STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
 
@@ -108,6 +108,17 @@ class PipelineResult(BaseModel):
     errors: list[dict]
 
 
+class ScrapeTriggerResponse(BaseModel):
+    status: str
+    message: str
+
+
+class ScrapeStatusResponse(BaseModel):
+    running: bool
+    result: Optional[PipelineResult] = None
+    error: Optional[str] = None
+
+
 @app.get("/health")
 def health():
     return {
@@ -178,10 +189,16 @@ def get_person(person_id: int, db: Session = Depends(get_db)):
     return person.to_dict()
 
 
-@app.post("/api/v1/scrape", response_model=PipelineResult, dependencies=[Depends(verify_api_key), Depends(require_database)])
-def trigger_scrape(db: Session = Depends(get_db)):
-    """Manually trigger a scrape run. Useful for CRM integrations."""
-    return run_pipeline(db)
+@app.post("/api/v1/scrape", response_model=ScrapeTriggerResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
+def trigger_scrape():
+    """Start a scrape run in the background (avoids Railway/proxy timeouts)."""
+    return start_background_scrape()
+
+
+@app.get("/api/v1/scrape/status", response_model=ScrapeStatusResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
+def scrape_run_status():
+    """Poll scrape progress after POST /api/v1/scrape."""
+    return scrape_status()
 
 
 @app.get("/api/v1/export/people", dependencies=[Depends(verify_api_key), Depends(require_database)])

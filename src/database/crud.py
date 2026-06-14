@@ -64,12 +64,12 @@ def get_people(
     limit: int = 50,
     offset: int = 0,
 ) -> list[Person]:
-    query = db.query(Person)
+    query = db.query(Person).join(Article, Person.article_id == Article.id)
     if name:
         query = query.filter(Person.full_name.ilike(f"%{name}%"))
     if since:
-        query = query.filter(Person.created_at >= since)
-    return query.order_by(Person.created_at.desc()).offset(offset).limit(limit).all()
+        query = query.filter(Article.scraped_at >= since)
+    return query.order_by(Article.scraped_at.desc()).offset(offset).limit(limit).all()
 
 
 def get_person_by_id(db: Session, person_id: int) -> Person | None:
@@ -85,7 +85,12 @@ def get_stats(db: Session) -> dict:
     total_people = db.query(Person).count()
     last_24h = datetime.utcnow() - timedelta(hours=24)
     recent_articles = db.query(Article).filter(Article.scraped_at >= last_24h).count()
-    recent_people = db.query(Person).filter(Person.created_at >= last_24h).count()
+    recent_people = (
+        db.query(Person)
+        .join(Article, Person.article_id == Article.id)
+        .filter(Article.scraped_at >= last_24h)
+        .count()
+    )
     return {
         "total_articles": total_articles,
         "total_people": total_people,

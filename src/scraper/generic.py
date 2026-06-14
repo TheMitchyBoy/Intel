@@ -23,14 +23,41 @@ BLOX_CONTENT_SELECTORS = (
 )
 
 
+BROWSER_HEADERS = {
+    "User-Agent": BROWSER_USER_AGENT,
+    "Accept": "application/rss+xml, application/xml, text/xml, */*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.ketchikandailynews.com/",
+}
+
+
 class RSSScraper(BaseScraper):
     """Scrape articles from an RSS/Atom feed."""
+
+    def _fetch_feed(self, url: str):
+        for attempt in range(3):
+            try:
+                with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as client:
+                    response = client.get(url)
+                    if response.status_code == 429:
+                        wait = 2 ** attempt
+                        logger.warning("RSS rate limited for %s, retrying in %ds", url, wait)
+                        time.sleep(wait)
+                        continue
+                    response.raise_for_status()
+                    return feedparser.parse(response.text)
+            except Exception as e:
+                if attempt == 2:
+                    logger.warning("RSS httpx fetch failed for %s: %s — trying feedparser fallback", url, e)
+                    return feedparser.parse(url, agent=BROWSER_USER_AGENT)
+                time.sleep(2 ** attempt)
+        return feedparser.parse(url, agent=BROWSER_USER_AGENT)
 
     def scrape(self) -> list[ScrapedArticle]:
         url = self.config["url"]
         logger.info("Fetching RSS feed: %s", url)
 
-        feed = feedparser.parse(url, agent=BROWSER_USER_AGENT)
+        feed = self._fetch_feed(url)
 
         if feed.bozo and not feed.entries:
             logger.warning(
@@ -41,7 +68,6 @@ class RSSScraper(BaseScraper):
             return []
 
         articles: list[ScrapedArticle] = []
-        delay = self.config.get("request_delay_seconds", 0)
 
         for entry in feed.entries:
             title = entry.get("title", "").strip()
@@ -76,8 +102,6 @@ class RSSScraper(BaseScraper):
                     author=author,
                 )
             )
-            if delay:
-                time.sleep(delay)
 
         logger.info("Found %d articles from RSS: %s", len(articles), self.name)
         return articles
@@ -121,8 +145,11 @@ class RSSScraper(BaseScraper):
         return selectors.get("content", BLOX_CONTENT_SELECTORS)
 
     def _fetch_page_content(self, url: str) -> str:
+        delay = self.config.get("request_delay_seconds", 0)
+        if delay:
+            time.sleep(delay)
         try:
-            with httpx.Client(timeout=30, headers={"User-Agent": BROWSER_USER_AGENT}) as client:
+            with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as client:
                 response = client.get(url)
                 if response.status_code == 429:
                     logger.warning("Rate limited fetching %s", url)

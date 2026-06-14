@@ -8,7 +8,7 @@ sources:
     type: rss
     enabled: true
     region: "Ketchikan, AK"
-    request_delay_seconds: 4
+    request_delay_seconds: 2
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -18,9 +18,9 @@ sources:
   - name: "Ketchikan Daily News - Local"
     url: "https://www.ketchikandailynews.com/search/?f=rss&t=article&c=news/local"
     type: rss
-    enabled: true
+    enabled: false
     region: "Ketchikan, AK"
-    request_delay_seconds: 4
+    request_delay_seconds: 2
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -30,9 +30,9 @@ sources:
   - name: "Ketchikan Daily News - Obituaries"
     url: "https://www.ketchikandailynews.com/search/?f=rss&t=article&c=news/obituaries"
     type: rss
-    enabled: true
+    enabled: false
     region: "Ketchikan, AK"
-    request_delay_seconds: 4
+    request_delay_seconds: 2
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -40,6 +40,5 @@ sources:
       content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
 
 scraper:
-  max_articles_per_source: 25
-  request_delay_seconds: 4
-  lookback_days: 7
+  max_articles_per_source: 15
+  request_delay_seconds: 2

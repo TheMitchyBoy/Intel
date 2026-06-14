@@ -29,7 +29,7 @@ SKIP_NAME_FRAGMENTS = (
 )
 SKIP_EXACT_NAMES = {
     "email print copy", "facebook twitter", "positivity", "local news",
-    "ketchikan daily news", "daily news",
+    "ketchikan daily news", "daily news", "ketchikan daily news staff",
 }
 
 
@@ -69,7 +69,10 @@ def _is_valid_name(name: str) -> bool:
 
 
 def extract_names_from_author(author: str) -> list[dict]:
-    if not author or author.lower() in SKIP_EXACT_NAMES:
+    if not author:
+        return []
+    lower = author.lower().strip()
+    if lower in SKIP_EXACT_NAMES or "daily news" in lower and "by" not in lower:
         return []
     return extract_names_from_bylines(author if author.lower().startswith("by") else f"By {author}")
 

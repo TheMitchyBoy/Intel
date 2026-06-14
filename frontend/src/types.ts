@@ -39,6 +39,17 @@ export interface PipelineResult {
   errors: { source: string; error: string }[];
 }
 
+export interface ScrapeTriggerResponse {
+  status: string;
+  message: string;
+}
+
+export interface ScrapeStatusResponse {
+  running: boolean;
+  result: PipelineResult | null;
+  error: string | null;
+}
+
 export type Tab = "today" | "people" | "articles";
 
 declare global {

@@ -52,17 +52,39 @@ export default function App() {
 
   const handleScrape = async () => {
     setScraping(true);
-    setScrapeMsg(null);
+    setScrapeMsg("Starting scrape…");
     try {
-      const result = await api.triggerScrape();
-      const errNote = result.errors?.length
-        ? ` Warnings: ${result.errors.map((e) => e.source).join(", ")}.`
-        : "";
-      setScrapeMsg(
-        `Found ${result.found} articles, ${result.new} new, ${result.people} people` +
-          (result.people_updated ? ` (${result.people_updated} articles updated).` : ".") +
-          errNote
-      );
+      const trigger = await api.triggerScrape();
+      if (trigger.status === "already_running") {
+        setScrapeMsg(trigger.message);
+        return;
+      }
+
+      setScrapeMsg("Scraping Ketchikan Daily News… (may take 1–2 minutes)");
+
+      while (true) {
+        const status = await api.getScrapeStatus();
+        if (!status.running) {
+          if (status.error) {
+            setScrapeMsg(`Scrape failed: ${status.error}`);
+          } else if (status.result) {
+            const result = status.result;
+            const errNote = result.errors?.length
+              ? ` Warnings: ${result.errors.map((e) => `${e.source}: ${e.error}`).join("; ")}.`
+              : "";
+            setScrapeMsg(
+              `Found ${result.found} articles, ${result.new} new, ${result.people} people` +
+                (result.people_updated ? ` (${result.people_updated} articles updated).` : ".") +
+                errNote
+            );
+          } else {
+            setScrapeMsg("Scrape finished but returned no result.");
+          }
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 3000));
+        refreshStats();
+      }
       refreshAll();
     } catch (e) {
       setScrapeMsg(e instanceof Error ? e.message : "Scrape failed");

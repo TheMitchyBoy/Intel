@@ -1,5 +1,4 @@
 import logging
-import time
 
 from sqlalchemy.orm import Session
 
@@ -31,7 +30,6 @@ def run_pipeline(db: Session) -> dict:
     scrapers = get_all_scrapers()
     scraper_config = load_scraper_config()
     max_articles = scraper_config.get("max_articles_per_source", 20)
-    delay = scraper_config.get("request_delay_seconds", 2)
 
     totals = {
         "sources": 0,
@@ -89,7 +87,6 @@ def run_pipeline(db: Session) -> dict:
                 totals["people"] += _save_people(db, db_article.id, people)
                 new += 1
                 notify_crm("article.created", db_article.to_dict())
-                time.sleep(delay)
 
             crud.finish_scrape_log(db, log, articles_found=found, articles_new=new)
             db.commit()

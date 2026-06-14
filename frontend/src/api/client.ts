@@ -1,4 +1,4 @@
-import type { Article, Person, PipelineResult, Stats } from "../types";
+import type { Article, Person, ScrapeStatusResponse, ScrapeTriggerResponse, Stats } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 const API_KEY =
@@ -82,5 +82,8 @@ export const api = {
 
   getArticle: (id: number) => request<Article>(`/api/v1/articles/${id}`),
 
-  triggerScrape: () => request<PipelineResult>("/api/v1/scrape", { method: "POST" }),
+  triggerScrape: () =>
+    request<ScrapeTriggerResponse>("/api/v1/scrape", { method: "POST" }),
+
+  getScrapeStatus: () => request<ScrapeStatusResponse>("/api/v1/scrape/status"),
 };
