@@ -43,7 +43,7 @@ def run_pipeline(db: Session) -> dict:
 
     for index, scraper in enumerate(scrapers):
         if index > 0:
-            time.sleep(10)
+            time.sleep(15)
         totals["sources"] += 1
         log = crud.create_scrape_log(db, scraper.name)
         found = 0

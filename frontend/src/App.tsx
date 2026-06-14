@@ -41,7 +41,7 @@ export default function App() {
     articles,
     loading: articlesLoading,
     refresh: refreshArticles,
-  } = useArticles({ enabled: tab === "articles" });
+  } = useArticles({ enabled: tab === "articles", limit: 200 });
 
   const refreshAll = () => {
     refreshStats();

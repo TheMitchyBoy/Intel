@@ -2,7 +2,7 @@ import logging
 import time
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from urllib.parse import urljoin
+from urllib.parse import parse_qsl, urlencode, urlparse, urljoin, urlunparse
 
 import feedparser
 import httpx
@@ -66,61 +66,103 @@ class RSSScraper(BaseScraper):
                 time.sleep(2 ** attempt)
         return feedparser.parse(url, agent=BROWSER_USER_AGENT)
 
+    def _paginated_feed_urls(self, base_url: str) -> list[str]:
+        page_size = self.config.get("rss_page_size", 50)
+        max_pages = self.config.get("rss_pages", 1)
+        parsed = urlparse(base_url)
+        params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        urls: list[str] = []
+
+        for page in range(max_pages):
+            params["l"] = str(page_size)
+            params["o"] = str(page * page_size)
+            query = urlencode(params)
+            urls.append(urlunparse(parsed._replace(query=query)))
+
+        return urls
+
+    def _entry_to_article(self, entry) -> ScrapedArticle | None:
+        title = entry.get("title", "").strip()
+        link = entry.get("link", "").strip()
+        if not title or not link:
+            return None
+        if not self._passes_url_filters(link):
+            return None
+
+        published_at = None
+        if entry.get("published"):
+            try:
+                published_at = parsedate_to_datetime(entry.published)
+            except (ValueError, TypeError):
+                pass
+
+        content = self._extract_content(entry, link)
+        author = ""
+        if entry.get("author"):
+            author = str(entry.author).strip()
+        elif getattr(entry, "author_detail", None):
+            author = (entry.author_detail.get("name") or "").strip()
+
+        return ScrapedArticle(
+            title=title,
+            url=link,
+            content=content,
+            published_at=published_at,
+            source_name=self.name,
+            region=self.region,
+            author=author,
+        )
+
     def scrape(self) -> list[ScrapedArticle]:
         url = self.config["url"]
         logger.info("Fetching RSS feed: %s", url)
         self._page_rate_limits = 0
 
+        page_size = self.config.get("rss_page_size", 50)
+        page_delay = self.config.get("rss_page_delay_seconds", 3)
+        feed_urls = self._paginated_feed_urls(url)
+        articles: list[ScrapedArticle] = []
+        seen_urls: set[str] = set()
+
         with httpx.Client(timeout=30, headers=BROWSER_HEADERS, follow_redirects=True) as client:
             self._http = client
-            feed = self._fetch_feed(url)
 
-            if feed.bozo and not feed.entries:
-                logger.warning(
-                    "RSS feed failed for %s: %s (got HTML or rate-limited?)",
+            for page_index, feed_url in enumerate(feed_urls):
+                if page_index > 0 and page_delay:
+                    time.sleep(page_delay)
+
+                feed = self._fetch_feed(feed_url)
+                if feed.bozo and not feed.entries:
+                    if page_index == 0:
+                        logger.warning(
+                            "RSS feed failed for %s: %s (got HTML or rate-limited?)",
+                            self.name,
+                            getattr(feed, "bozo_exception", "unknown"),
+                        )
+                    break
+
+                page_count = 0
+                for entry in feed.entries:
+                    article = self._entry_to_article(entry)
+                    if not article or article.url in seen_urls:
+                        continue
+                    seen_urls.add(article.url)
+                    articles.append(article)
+                    page_count += 1
+
+                logger.info(
+                    "RSS page %d for %s: %d new articles (%d total)",
+                    page_index + 1,
                     self.name,
-                    getattr(feed, "bozo_exception", "unknown"),
-                )
-                return []
-
-            articles: list[ScrapedArticle] = []
-
-            for entry in feed.entries:
-                title = entry.get("title", "").strip()
-                link = entry.get("link", "").strip()
-                if not title or not link:
-                    continue
-                if not self._passes_url_filters(link):
-                    continue
-
-                published_at = None
-                if entry.get("published"):
-                    try:
-                        published_at = parsedate_to_datetime(entry.published)
-                    except (ValueError, TypeError):
-                        pass
-
-                content = self._extract_content(entry, link)
-                author = ""
-                if entry.get("author"):
-                    author = str(entry.author).strip()
-                elif getattr(entry, "author_detail", None):
-                    author = (entry.author_detail.get("name") or "").strip()
-
-                articles.append(
-                    ScrapedArticle(
-                        title=title,
-                        url=link,
-                        content=content,
-                        published_at=published_at,
-                        source_name=self.name,
-                        region=self.region,
-                        author=author,
-                    )
+                    page_count,
+                    len(articles),
                 )
 
-            logger.info("Found %d articles from RSS: %s", len(articles), self.name)
-            return articles
+                if page_count < page_size:
+                    break
+
+        logger.info("Found %d articles from RSS: %s", len(articles), self.name)
+        return articles
 
     def _passes_url_filters(self, link: str) -> bool:
         filters = self.config.get("filters", {})

@@ -1,6 +1,7 @@
 # Ketchikan Daily News — https://www.ketchikandailynews.com/
 # Uses BLOX/TNCMS search RSS. Section page RSS (?f=rss on /news/local/) often
 # returns HTML or rate-limits — use search RSS with filters instead.
+# Pagination: l=page size, o=offset (BLOX search API).
 
 sources:
   - name: "Ketchikan Daily News"
@@ -8,7 +9,7 @@ sources:
     type: rss
     enabled: true
     region: "Ketchikan, AK"
-    request_delay_seconds: 2
+    request_delay_seconds: 1
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -18,9 +19,21 @@ sources:
   - name: "Ketchikan Daily News - Local"
     url: "https://www.ketchikandailynews.com/search/?f=rss&t=article&c=news/local"
     type: rss
-    enabled: false
+    enabled: true
     region: "Ketchikan, AK"
-    request_delay_seconds: 2
+    request_delay_seconds: 1
+    filters:
+      url_must_contain: "/article_"
+      url_must_not_contain: "/image_"
+    selectors:
+      content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
+
+  - name: "Ketchikan Daily News - Sports"
+    url: "https://www.ketchikandailynews.com/search/?f=rss&t=article&c=news/sports"
+    type: rss
+    enabled: true
+    region: "Ketchikan, AK"
+    request_delay_seconds: 1
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -30,9 +43,9 @@ sources:
   - name: "Ketchikan Daily News - Obituaries"
     url: "https://www.ketchikandailynews.com/search/?f=rss&t=article&c=news/obituaries"
     type: rss
-    enabled: false
+    enabled: true
     region: "Ketchikan, AK"
-    request_delay_seconds: 2
+    request_delay_seconds: 1
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -40,6 +53,9 @@ sources:
       content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
 
 scraper:
-  max_articles_per_source: 15
+  max_articles_per_source: 150
+  rss_page_size: 50
+  rss_pages: 3
+  rss_page_delay_seconds: 4
   request_delay_seconds: 1
   fetch_full_pages: false
