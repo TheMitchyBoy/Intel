@@ -12,6 +12,20 @@ from src.scraper import get_all_scrapers, load_scraper_config
 logger = logging.getLogger(__name__)
 
 
+def _save_people(db: Session, article_id: int, people: list[dict]) -> int:
+    added = 0
+    for person in people:
+        crud.create_person(
+            db,
+            article_id=article_id,
+            full_name=person["full_name"],
+            role_context=person.get("role_context", ""),
+            mention_count=person.get("mention_count", 1),
+        )
+        added += 1
+    return added
+
+
 def run_pipeline(db: Session) -> dict:
     """Run the full scrape → extract → summarize → store pipeline."""
     scrapers = get_all_scrapers()
@@ -19,7 +33,14 @@ def run_pipeline(db: Session) -> dict:
     max_articles = scraper_config.get("max_articles_per_source", 20)
     delay = scraper_config.get("request_delay_seconds", 2)
 
-    totals = {"sources": 0, "found": 0, "new": 0, "people": 0, "errors": []}
+    totals = {
+        "sources": 0,
+        "found": 0,
+        "new": 0,
+        "people": 0,
+        "people_updated": 0,
+        "errors": [],
+    }
 
     for scraper in scrapers:
         totals["sources"] += 1
@@ -31,28 +52,28 @@ def run_pipeline(db: Session) -> dict:
             articles = scraper.scrape()[:max_articles]
             found = len(articles)
 
+            if found == 0:
+                totals["errors"].append({
+                    "source": scraper.name,
+                    "error": "No articles returned (RSS may be rate-limited or unavailable)",
+                })
+
             for article in articles:
                 existing = crud.get_article_by_url(db, article.url)
                 content = article.content or article.title
                 author = article.author or ""
+                people = extract_names(
+                    article.title, content, author=author, url=article.url
+                )
 
                 if existing:
-                    # Re-extract names if article was saved without people (e.g. earlier bug)
-                    if not existing.people:
-                        people = extract_names(article.title, content, author=author)
-                        for person in people:
-                            crud.create_person(
-                                db,
-                                article_id=existing.id,
-                                full_name=person["full_name"],
-                                role_context=person.get("role_context", ""),
-                                mention_count=person.get("mention_count", 1),
-                            )
-                            totals["people"] += 1
+                    if people:
+                        added = _save_people(db, existing.id, people)
+                        totals["people"] += added
+                        totals["people_updated"] += 1
                     continue
 
                 summary = summarize_article(article.title, content)
-                people = extract_names(article.title, content, author=author)
 
                 db_article = crud.create_article(
                     db,
@@ -65,16 +86,7 @@ def run_pipeline(db: Session) -> dict:
                     region=article.region,
                 )
 
-                for person in people:
-                    crud.create_person(
-                        db,
-                        article_id=db_article.id,
-                        full_name=person["full_name"],
-                        role_context=person.get("role_context", ""),
-                        mention_count=person.get("mention_count", 1),
-                    )
-                    totals["people"] += 1
-
+                totals["people"] += _save_people(db, db_article.id, people)
                 new += 1
                 notify_crm("article.created", db_article.to_dict())
                 time.sleep(delay)
@@ -84,7 +96,10 @@ def run_pipeline(db: Session) -> dict:
 
         except Exception as e:
             logger.error("Scrape failed for %s: %s", scraper.name, e)
-            crud.finish_scrape_log(db, log, articles_found=found, articles_new=new, status="failed", error_message=str(e))
+            crud.finish_scrape_log(
+                db, log, articles_found=found, articles_new=new,
+                status="failed", error_message=str(e),
+            )
             db.commit()
             totals["errors"].append({"source": scraper.name, "error": str(e)})
 

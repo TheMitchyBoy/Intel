@@ -96,6 +96,7 @@ class PipelineResult(BaseModel):
     found: int
     new: int
     people: int
+    people_updated: int = 0
     errors: list[dict]
 
 

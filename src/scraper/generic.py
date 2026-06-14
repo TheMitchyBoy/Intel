@@ -12,6 +12,10 @@ from src.scraper.base import BaseScraper, ScrapedArticle
 
 logger = logging.getLogger(__name__)
 
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (compatible; IntelBot/1.0; +https://github.com/TheMitchyBoy/Intel) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
 
 BLOX_CONTENT_SELECTORS = (
     "#article-body, [itemprop='articleBody'], .asset-body, "
@@ -26,7 +30,16 @@ class RSSScraper(BaseScraper):
         url = self.config["url"]
         logger.info("Fetching RSS feed: %s", url)
 
-        feed = feedparser.parse(url, agent=self.user_agent)
+        feed = feedparser.parse(url, agent=BROWSER_USER_AGENT)
+
+        if feed.bozo and not feed.entries:
+            logger.warning(
+                "RSS feed failed for %s: %s (got HTML or rate-limited?)",
+                self.name,
+                getattr(feed, "bozo_exception", "unknown"),
+            )
+            return []
+
         articles: list[ScrapedArticle] = []
         delay = self.config.get("request_delay_seconds", 0)
 
@@ -109,8 +122,11 @@ class RSSScraper(BaseScraper):
 
     def _fetch_page_content(self, url: str) -> str:
         try:
-            with httpx.Client(timeout=30, headers={"User-Agent": self.user_agent}) as client:
+            with httpx.Client(timeout=30, headers={"User-Agent": BROWSER_USER_AGENT}) as client:
                 response = client.get(url)
+                if response.status_code == 429:
+                    logger.warning("Rate limited fetching %s", url)
+                    return ""
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, "lxml")
                 for tag in soup(["script", "style", "nav", "footer", "header"]):

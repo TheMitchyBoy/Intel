@@ -35,6 +35,7 @@ export interface PipelineResult {
   found: number;
   new: number;
   people: number;
+  people_updated?: number;
   errors: { source: string; error: string }[];
 }
 

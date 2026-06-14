@@ -1,13 +1,14 @@
 # Ketchikan Daily News — https://www.ketchikandailynews.com/
-# Powered by BLOX/TNCMS. RSS feeds use ?f=rss on section pages.
+# Uses BLOX/TNCMS search RSS. Section page RSS (?f=rss on /news/local/) often
+# returns HTML or rate-limits — use search RSS with filters instead.
 
 sources:
   - name: "Ketchikan Daily News"
-    url: "https://www.ketchikandailynews.com/search/?f=rss"
+    url: "https://www.ketchikandailynews.com/search/?f=rss&t=article"
     type: rss
     enabled: true
     region: "Ketchikan, AK"
-    request_delay_seconds: 3
+    request_delay_seconds: 4
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -15,23 +16,11 @@ sources:
       content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
 
   - name: "Ketchikan Daily News - Local"
-    url: "https://www.ketchikandailynews.com/news/local/?f=rss"
+    url: "https://www.ketchikandailynews.com/search/?f=rss&t=article&c=news/local"
     type: rss
     enabled: true
     region: "Ketchikan, AK"
-    request_delay_seconds: 3
-    filters:
-      url_must_contain: "/article_"
-      url_must_not_contain: "/image_"
-    selectors:
-      content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
-
-  - name: "Ketchikan Daily News - Sports"
-    url: "https://www.ketchikandailynews.com/news/sports/?f=rss"
-    type: rss
-    enabled: true
-    region: "Ketchikan, AK"
-    request_delay_seconds: 3
+    request_delay_seconds: 4
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -39,11 +28,11 @@ sources:
       content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
 
   - name: "Ketchikan Daily News - Obituaries"
-    url: "https://www.ketchikandailynews.com/obituaries/?f=rss"
+    url: "https://www.ketchikandailynews.com/search/?f=rss&t=article&c=news/obituaries"
     type: rss
     enabled: true
     region: "Ketchikan, AK"
-    request_delay_seconds: 3
+    request_delay_seconds: 4
     filters:
       url_must_contain: "/article_"
       url_must_not_contain: "/image_"
@@ -51,6 +40,6 @@ sources:
       content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
 
 scraper:
-  max_articles_per_source: 15
-  request_delay_seconds: 3
+  max_articles_per_source: 25
+  request_delay_seconds: 4
   lookback_days: 7

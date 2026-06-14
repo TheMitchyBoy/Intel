@@ -56,8 +56,13 @@ export default function App() {
     setScrapeMsg(null);
     try {
       const result = await api.triggerScrape();
+      const errNote = result.errors?.length
+        ? ` Warnings: ${result.errors.map((e) => e.source).join(", ")}.`
+        : "";
       setScrapeMsg(
-        `Scraped ${result.new} new articles, found ${result.people} people.`
+        `Found ${result.found} articles, ${result.new} new, ${result.people} people` +
+          (result.people_updated ? ` (${result.people_updated} articles updated).` : ".") +
+          errNote
       );
       refreshAll();
     } catch (e) {
