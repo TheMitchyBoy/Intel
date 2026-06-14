@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: intel
+      POSTGRES_PASSWORD: intel_secret
+      POSTGRES_DB: intel_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intel -d intel_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://intel:intel_secret@db:5432/intel_db
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      API_KEY: ${API_KEY:-dev-api-key}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config:ro
+    command: uvicorn src.api.server:app --host 0.0.0.0 --port 8000
+
+  scraper:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://intel:intel_secret@db:5432/intel_db
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-6}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config:ro
+    command: python -m src.main scheduler
+
+volumes:
+  postgres_data:
