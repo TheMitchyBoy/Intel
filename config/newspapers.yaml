@@ -1,26 +1,56 @@
-# Configure your local newspaper sources here.
-# Each source can be RSS-based or HTML-based.
+# Ketchikan Daily News — https://www.ketchikandailynews.com/
+# Powered by BLOX/TNCMS. RSS feeds use ?f=rss on section pages.
 
 sources:
-  - name: "Example Local News"
-    url: "https://news.google.com/rss/search?q=local+news&hl=en-US&gl=US&ceid=US:en"
+  - name: "Ketchikan Daily News"
+    url: "https://www.ketchikandailynews.com/search/?f=rss"
     type: rss
     enabled: true
-    region: "local"
+    region: "Ketchikan, AK"
+    request_delay_seconds: 3
+    filters:
+      url_must_contain: "/article_"
+      url_must_not_contain: "/image_"
+    selectors:
+      content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
 
-  # HTML scraper example — uncomment and customize for your newspaper:
-  # - name: "My Local Gazette"
-  #   url: "https://www.example-local-news.com"
-  #   type: html
-  #   enabled: true
-  #   region: "Springfield"
-  #   selectors:
-  #     article_list: "article.news-item"
-  #     title: "h2.title"
-  #     link: "a.read-more"
-  #     content: "div.article-body"
+  - name: "Ketchikan Daily News - Local"
+    url: "https://www.ketchikandailynews.com/news/local/?f=rss"
+    type: rss
+    enabled: true
+    region: "Ketchikan, AK"
+    request_delay_seconds: 3
+    filters:
+      url_must_contain: "/article_"
+      url_must_not_contain: "/image_"
+    selectors:
+      content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
+
+  - name: "Ketchikan Daily News - Sports"
+    url: "https://www.ketchikandailynews.com/news/sports/?f=rss"
+    type: rss
+    enabled: true
+    region: "Ketchikan, AK"
+    request_delay_seconds: 3
+    filters:
+      url_must_contain: "/article_"
+      url_must_not_contain: "/image_"
+    selectors:
+      content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
+
+  - name: "Ketchikan Daily News - Obituaries"
+    url: "https://www.ketchikandailynews.com/obituaries/?f=rss"
+    type: rss
+    enabled: true
+    region: "Ketchikan, AK"
+    request_delay_seconds: 3
+    filters:
+      url_must_contain: "/article_"
+      url_must_not_contain: "/image_"
+    selectors:
+      content: "#article-body, [itemprop='articleBody'], .asset-body, .subscriber-preview"
 
 scraper:
-  max_articles_per_source: 20
-  request_delay_seconds: 2
+  max_articles_per_source: 15
+  request_delay_seconds: 3
   lookback_days: 7
