@@ -123,10 +123,37 @@ for person in people:
 
 **scrape_logs** — audit trail for each scrape run
 
+## CRM Frontend
+
+A web dashboard for exploring scraped newspaper data and viewing names in the news today.
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev    # http://localhost:3000 (proxies API to :8000)
+```
+
+With Docker:
+
+```bash
+docker compose up -d
+# CRM dashboard: http://localhost:3000
+```
+
+### Dashboard features
+
+- **Today's names** — people mentioned in today's Ketchikan Daily News articles
+- **All people** — searchable directory of everyone found in the paper
+- **Articles** — browse AI summaries with linked people
+- **Run scrape** — trigger a fresh pull from the newspaper
+- **Detail modals** — click any person or article for full context
+
 ## Project structure
 
 ```
 config/newspapers.yaml   # Newspaper source configuration
+frontend/                # React CRM dashboard
 src/
   scraper/               # RSS and HTML scrapers
   ai/                    # Name extraction and summarization

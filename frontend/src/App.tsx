@@ -1,0 +1,215 @@
+import { useState } from "react";
+import { api, startOfToday } from "./api/client";
+import { useArticles, usePeople, useStats } from "./hooks/useData";
+import type { Article, Person, Tab } from "./types";
+import { StatsCards } from "./components/StatsCards";
+import { PersonCard } from "./components/PersonCard";
+import { ArticleCard } from "./components/ArticleCard";
+import { PersonDetail } from "./components/PersonDetail";
+import { ArticleDetail } from "./components/ArticleDetail";
+
+function todayLabel() {
+  return new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>("today");
+  const [search, setSearch] = useState("");
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeMsg, setScrapeMsg] = useState<string | null>(null);
+
+  const today = startOfToday();
+  const { stats, loading: statsLoading, refresh: refreshStats } = useStats();
+  const {
+    people: todayPeople,
+    loading: todayLoading,
+    refresh: refreshToday,
+  } = usePeople(today);
+  const {
+    people: allPeople,
+    loading: peopleLoading,
+    refresh: refreshPeople,
+  } = usePeople(undefined, search || undefined);
+  const {
+    articles,
+    loading: articlesLoading,
+    refresh: refreshArticles,
+  } = useArticles(undefined);
+
+  const refreshAll = () => {
+    refreshStats();
+    refreshToday();
+    refreshPeople();
+    refreshArticles();
+  };
+
+  const handleScrape = async () => {
+    setScraping(true);
+    setScrapeMsg(null);
+    try {
+      const result = await api.triggerScrape();
+      setScrapeMsg(
+        `Scraped ${result.new} new articles, found ${result.people} people.`
+      );
+      refreshAll();
+    } catch (e) {
+      setScrapeMsg(e instanceof Error ? e.message : "Scrape failed");
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  const displayPeople = tab === "today" ? todayPeople : allPeople;
+  const peopleLoadingState = tab === "today" ? todayLoading : peopleLoading;
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="header-brand">
+          <div className="logo">Intel</div>
+          <div>
+            <h1>Ketchikan Daily News CRM</h1>
+            <p className="header-sub">Local newspaper intelligence</p>
+          </div>
+        </div>
+        <div className="header-actions">
+          <button className="btn btn--ghost" onClick={refreshAll}>
+            Refresh
+          </button>
+          <button className="btn btn--primary" onClick={handleScrape} disabled={scraping}>
+            {scraping ? "Scraping…" : "Run scrape"}
+          </button>
+        </div>
+      </header>
+
+      {scrapeMsg && (
+        <div className="toast" onClick={() => setScrapeMsg(null)}>
+          {scrapeMsg}
+        </div>
+      )}
+
+      <main className="main">
+        <StatsCards stats={stats} loading={statsLoading} />
+
+        <nav className="tabs">
+          {(
+            [
+              ["today", "Today's names"],
+              ["people", "All people"],
+              ["articles", "Articles"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              className={`tab${tab === id ? " tab--active" : ""}`}
+              onClick={() => setTab(id)}
+            >
+              {label}
+              {id === "today" && todayPeople.length > 0 && (
+                <span className="tab-count">{todayPeople.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {tab === "people" && (
+          <div className="search-bar">
+            <input
+              type="search"
+              placeholder="Search by name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        )}
+
+        {tab === "today" && (
+          <section className="section">
+            <div className="section-header">
+              <h2>Names in the news today</h2>
+              <span className="section-date">{todayLabel()}</span>
+            </div>
+            {todayLoading ? (
+              <p className="empty">Loading today's names…</p>
+            ) : todayPeople.length === 0 ? (
+              <div className="empty-state">
+                <p>No names found in today's news yet.</p>
+                <p className="empty-hint">
+                  Run a scrape to pull the latest from Ketchikan Daily News.
+                </p>
+              </div>
+            ) : (
+              <div className="people-grid">
+                {todayPeople.map((person) => (
+                  <PersonCard
+                    key={person.id}
+                    person={person}
+                    onClick={() => setSelectedPerson(person)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "people" && (
+          <section className="section">
+            <div className="section-header">
+              <h2>All people</h2>
+              <span className="section-count">{displayPeople.length} records</span>
+            </div>
+            {peopleLoadingState ? (
+              <p className="empty">Loading…</p>
+            ) : displayPeople.length === 0 ? (
+              <p className="empty">No people found{search ? ` for "${search}"` : ""}.</p>
+            ) : (
+              <div className="people-grid">
+                {displayPeople.map((person) => (
+                  <PersonCard
+                    key={person.id}
+                    person={person}
+                    onClick={() => setSelectedPerson(person)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "articles" && (
+          <section className="section">
+            <div className="section-header">
+              <h2>Recent articles</h2>
+              <span className="section-count">{articles.length} articles</span>
+            </div>
+            {articlesLoading ? (
+              <p className="empty">Loading articles…</p>
+            ) : articles.length === 0 ? (
+              <p className="empty">No articles yet. Run a scrape to get started.</p>
+            ) : (
+              <div className="article-list">
+                {articles.map((article) => (
+                  <ArticleCard
+                    key={article.id}
+                    article={article}
+                    onClick={() => setSelectedArticle(article)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+      </main>
+
+      <PersonDetail person={selectedPerson} onClose={() => setSelectedPerson(null)} />
+      <ArticleDetail article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+    </div>
+  );
+}
