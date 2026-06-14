@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "./api/client";
 import { useArticles, usePeople, useStats } from "./hooks/useData";
-import type { Article, Person, Tab } from "./types";
+import type { Article, Person, PipelineResult, Tab } from "./types";
 import { StatsCards } from "./components/StatsCards";
 import { PersonCard } from "./components/PersonCard";
 import { ArticleCard } from "./components/ArticleCard";
@@ -18,12 +18,38 @@ function todayLabel() {
   });
 }
 
+async function pollJobStatus(
+  getStatus: (runId?: number) => Promise<{ running: boolean; result?: PipelineResult | null; error?: string | null }>,
+  runId: number | undefined,
+  onTick?: () => void
+): Promise<{ ok: boolean; result?: PipelineResult; message: string }> {
+  await new Promise((r) => setTimeout(r, 500));
+
+  for (let i = 0; i < 120; i++) {
+    const status = await getStatus(runId);
+    if (!status.running) {
+      if (status.error) {
+        return { ok: false, message: status.error };
+      }
+      if (status.result) {
+        return { ok: true, result: status.result, message: "" };
+      }
+      return { ok: false, message: "Job finished but returned no result — check Railway logs." };
+    }
+    if (i % 2 === 0) onTick?.();
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return { ok: false, message: "Timed out waiting for job to finish." };
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   const [search, setSearch] = useState("");
+  const [highConfidenceOnly, setHighConfidenceOnly] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [scraping, setScraping] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState<string | null>(null);
 
   const { stats, loading: statsLoading, refresh: refreshStats } = useStats();
@@ -36,7 +62,16 @@ export default function App() {
     people: allPeople,
     loading: peopleLoading,
     refresh: refreshPeople,
-  } = usePeople({ name: search || undefined, enabled: tab === "people" });
+  } = usePeople({
+    name: search || undefined,
+    min_confidence: highConfidenceOnly ? 0.75 : undefined,
+    enabled: tab === "people",
+  });
+  const {
+    people: reviewPeople,
+    loading: reviewLoading,
+    refresh: refreshReview,
+  } = usePeople({ review_status: "pending", enabled: tab === "review" });
   const {
     articles,
     loading: articlesLoading,
@@ -47,6 +82,7 @@ export default function App() {
     refreshStats();
     refreshToday();
     refreshPeople();
+    refreshReview();
     refreshArticles();
   };
 
@@ -63,30 +99,21 @@ export default function App() {
       const runId = trigger.run_id ?? undefined;
       setScrapeMsg("Scraping Ketchikan Daily News… (usually under 30 seconds)");
 
-      await new Promise((r) => setTimeout(r, 500));
-
-      for (let i = 0; i < 120; i++) {
-        const status = await api.getScrapeStatus(runId);
-        if (!status.running) {
-          if (status.error) {
-            setScrapeMsg(`Scrape failed: ${status.error}`);
-          } else if (status.result) {
-            const result = status.result;
-            const errNote = result.errors?.length
-              ? ` Warnings: ${result.errors.map((e) => `${e.source}: ${e.error}`).join("; ")}.`
-              : "";
-            setScrapeMsg(
-              `Found ${result.found} articles, ${result.new} new, ${result.people} people` +
-                (result.people_updated ? ` (${result.people_updated} articles updated).` : ".") +
-                errNote
-            );
-          } else {
-            setScrapeMsg("Scrape finished but returned no result — check Railway logs.");
-          }
-          break;
-        }
-        if (i % 2 === 0) refreshStats();
-        await new Promise((r) => setTimeout(r, 2000));
+      const result = await pollJobStatus(api.getScrapeStatus, runId, refreshStats);
+      if (!result.ok) {
+        setScrapeMsg(`Scrape failed: ${result.message}`);
+      } else if (result.result) {
+        const parsed = result.result;
+        const errNote = parsed.errors?.length
+          ? ` Warnings: ${parsed.errors.map((e) => `${e.source}: ${e.error}`).join("; ")}.`
+          : "";
+        setScrapeMsg(
+          `Found ${parsed.found ?? 0} articles, ${parsed.new ?? 0} new, ${parsed.people ?? 0} people` +
+            (parsed.people_updated ? ` (${parsed.people_updated} articles updated).` : ".") +
+            errNote
+        );
+      } else {
+        setScrapeMsg("Scrape completed.");
       }
       refreshAll();
     } catch (e) {
@@ -96,8 +123,60 @@ export default function App() {
     }
   };
 
-  const displayPeople = tab === "today" ? todayPeople : allPeople;
-  const peopleLoadingState = tab === "today" ? todayLoading : peopleLoading;
+  const handleReprocess = async () => {
+    setReprocessing(true);
+    setScrapeMsg("Starting name re-extraction…");
+    try {
+      const trigger = await api.triggerReprocess();
+      if (trigger.status === "already_running") {
+        setScrapeMsg(trigger.message);
+        return;
+      }
+
+      const runId = trigger.run_id ?? undefined;
+      setScrapeMsg("Re-extracting names from all articles…");
+
+      const result = await pollJobStatus(api.getReprocessStatus, runId, refreshStats);
+      if (!result.ok) {
+        setScrapeMsg(`Re-extract failed: ${result.message}`);
+      } else if (result.result) {
+        const parsed = result.result;
+        setScrapeMsg(
+          `Re-processed ${parsed.articles ?? 0} articles — ` +
+            `${parsed.mentions_created ?? 0} mentions created, ` +
+            `${parsed.mentions_removed ?? 0} removed.`
+        );
+      } else {
+        setScrapeMsg("Name re-extraction completed.");
+      }
+      refreshAll();
+    } catch (e) {
+      setScrapeMsg(e instanceof Error ? e.message : "Re-extract failed");
+    } finally {
+      setReprocessing(false);
+    }
+  };
+
+  const handleReview = async (status: "confirmed" | "rejected") => {
+    if (!selectedPerson) return;
+    try {
+      const updated = await api.reviewPerson(selectedPerson.id, status);
+      setSelectedPerson(updated);
+      refreshAll();
+      setScrapeMsg(
+        status === "confirmed"
+          ? `Confirmed ${updated.full_name}`
+          : `Rejected ${updated.full_name}`
+      );
+    } catch (e) {
+      setScrapeMsg(e instanceof Error ? e.message : "Review failed");
+    }
+  };
+
+  const displayPeople = tab === "today" ? todayPeople : tab === "review" ? reviewPeople : allPeople;
+  const peopleLoadingState =
+    tab === "today" ? todayLoading : tab === "review" ? reviewLoading : peopleLoading;
+  const busy = scraping || reprocessing;
 
   return (
     <div className="app">
@@ -113,7 +192,10 @@ export default function App() {
           <button className="btn btn--ghost" onClick={refreshAll}>
             Refresh
           </button>
-          <button className="btn btn--primary" onClick={handleScrape} disabled={scraping}>
+          <button className="btn btn--ghost" onClick={handleReprocess} disabled={busy}>
+            {reprocessing ? "Re-extracting…" : "Re-extract names"}
+          </button>
+          <button className="btn btn--primary" onClick={handleScrape} disabled={busy}>
             {scraping ? "Scraping…" : "Run scrape"}
           </button>
         </div>
@@ -134,6 +216,7 @@ export default function App() {
             [
               ["today", "Today's names"],
               ["people", "All people"],
+              ["review", "Review queue"],
               ["articles", "Articles"],
             ] as const
           ).map(([id, label]) => (
@@ -146,18 +229,31 @@ export default function App() {
               {id === "today" && todayPeople.length > 0 && (
                 <span className="tab-count">{todayPeople.length}</span>
               )}
+              {id === "review" && (stats?.pending_review ?? reviewPeople.length) > 0 && (
+                <span className="tab-count">{stats?.pending_review ?? reviewPeople.length}</span>
+              )}
             </button>
           ))}
         </nav>
 
         {tab === "people" && (
-          <div className="search-bar">
-            <input
-              type="search"
-              placeholder="Search by name…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="filter-bar">
+            <div className="search-bar" style={{ marginBottom: 0 }}>
+              <input
+                type="search"
+                placeholder="Search by name…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <label>
+              <input
+                type="checkbox"
+                checked={highConfidenceOnly}
+                onChange={(e) => setHighConfidenceOnly(e.target.checked)}
+              />
+              High confidence only (75%+)
+            </label>
           </div>
         )}
 
@@ -186,7 +282,7 @@ export default function App() {
               <div className="people-grid">
                 {todayPeople.map((person) => (
                   <PersonCard
-                    key={person.full_name}
+                    key={person.id}
                     person={person}
                     onClick={() => setSelectedPerson(person)}
                   />
@@ -210,7 +306,36 @@ export default function App() {
               <div className="people-grid">
                 {displayPeople.map((person) => (
                   <PersonCard
-                    key={person.full_name}
+                    key={person.id}
+                    person={person}
+                    onClick={() => setSelectedPerson(person)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "review" && (
+          <section className="section">
+            <div className="section-header">
+              <h2>Review queue</h2>
+              <span className="section-count">{reviewPeople.length} pending</span>
+            </div>
+            {reviewLoading && reviewPeople.length === 0 ? (
+              <p className="empty">Loading review queue…</p>
+            ) : reviewPeople.length === 0 ? (
+              <div className="empty-state">
+                <p>No names pending review.</p>
+                <p className="empty-hint">
+                  Names with low confidence or a single source appear here for manual confirmation.
+                </p>
+              </div>
+            ) : (
+              <div className="people-grid">
+                {reviewPeople.map((person) => (
+                  <PersonCard
+                    key={person.id}
                     person={person}
                     onClick={() => setSelectedPerson(person)}
                   />
@@ -245,7 +370,11 @@ export default function App() {
         )}
       </main>
 
-      <PersonDetail person={selectedPerson} onClose={() => setSelectedPerson(null)} />
+      <PersonDetail
+        person={selectedPerson}
+        onClose={() => setSelectedPerson(null)}
+        onReview={tab === "review" || selectedPerson?.review_status === "pending" ? handleReview : undefined}
+      />
       <ArticleDetail article={selectedArticle} onClose={() => setSelectedArticle(null)} />
     </div>
   );

@@ -377,6 +377,13 @@ body {
   overflow: hidden;
 }
 
+.person-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
 .badge {
   display: inline-block;
   font-size: 0.7rem;
@@ -384,7 +391,49 @@ body {
   color: var(--gray-600);
   padding: 0.15rem 0.5rem;
   border-radius: 99px;
-  margin-top: 0.35rem;
+}
+
+.badge--pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge--confirmed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge--rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge--confidence {
+  background: var(--ice);
+  color: var(--glacier);
+}
+
+.review-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.filter-bar label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  cursor: pointer;
 }
 
 /* Articles */

@@ -7,6 +7,7 @@ from typing import Any
 
 from src.database import crud
 from src.database.models import get_session_factory
+from src.pipeline.reprocess import reprocess_all_names
 from src.pipeline.runner import run_pipeline
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,40 @@ def scrape_status(run_id: int | None = None) -> dict[str, Any]:
         db.close()
 
 
+def start_background_reprocess() -> dict[str, Any]:
+    db = get_session_factory()()
+    try:
+        run = crud.create_pipeline_run(db)
+        if run is None:
+            latest = crud.get_latest_pipeline_run(db)
+            return {
+                "status": "already_running",
+                "message": "A background job is already in progress.",
+                "run_id": latest.id if latest else None,
+            }
+        run_id = run.id
+    finally:
+        db.close()
+
+    def _run() -> None:
+        db = get_session_factory()()
+        try:
+            result = reprocess_all_names(db)
+            crud.finish_pipeline_run(db, run_id, result={"job": "reprocess", **result})
+        except Exception as exc:
+            logger.exception("Background reprocess failed for run %s", run_id)
+            crud.finish_pipeline_run(db, run_id, error=str(exc))
+        finally:
+            db.close()
+
+    threading.Thread(target=_run, daemon=True, name=f"reprocess-{run_id}").start()
+    return {
+        "status": "started",
+        "message": "Re-extracting names from all articles…",
+        "run_id": run_id,
+    }
+
+
 def start_background_scrape() -> dict[str, Any]:
     db = get_session_factory()()
     try:
@@ -60,7 +95,7 @@ def start_background_scrape() -> dict[str, Any]:
         db = get_session_factory()()
         try:
             result = run_pipeline(db)
-            crud.finish_pipeline_run(db, run_id, result=result)
+            crud.finish_pipeline_run(db, run_id, result={"job": "scrape", **result})
         except Exception as exc:
             logger.exception("Background scrape failed for run %s", run_id)
             crud.finish_pipeline_run(db, run_id, error=str(exc))

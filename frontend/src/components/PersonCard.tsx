@@ -9,6 +9,12 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function confidenceLabel(score: number) {
+  if (score >= 0.9) return "High";
+  if (score >= 0.75) return "Medium";
+  return "Low";
+}
+
 interface Props {
   person: Person;
   onClick?: () => void;
@@ -32,12 +38,11 @@ export function PersonCard({ person, onClick, compact }: Props) {
           </p>
         )}
         <div className="person-meta">
-          {articleCount > 1 && (
-            <span className="badge">{articleCount} articles</span>
-          )}
-          {person.mention_count > 1 && (
-            <span className="badge">{person.mention_count} mentions</span>
-          )}
+          <span className={`badge badge--${person.review_status}`}>{person.review_status}</span>
+          <span className="badge badge--confidence">
+            {confidenceLabel(person.confidence)} · {Math.round(person.confidence * 100)}%
+          </span>
+          {articleCount > 1 && <span className="badge">{articleCount} articles</span>}
         </div>
       </div>
     </article>

@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.config import settings
+from src.database import contacts
 from src.database.crud import (
     cleanup_invalid_people,
     get_article_by_id,
@@ -23,7 +24,7 @@ from src.database.crud import (
 )
 from src.database.models import get_db, get_session_factory, init_db
 from src.database.url import database_setup_error
-from src.pipeline.background import scrape_status, start_background_scrape
+from src.pipeline.background import scrape_status, start_background_reprocess, start_background_scrape
 from src.pipeline.scheduler import schedule_info, start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
@@ -38,9 +39,10 @@ async def lifespan(app: FastAPI):
             init_db()
             db = get_session_factory()()
             try:
+                contacts.migrate_legacy_people(db)
                 removed = cleanup_invalid_people(db)
                 if removed:
-                    logger.info("Cleaned up %d invalid person records on startup", removed)
+                    logger.info("Cleaned up %d invalid contacts on startup", removed)
             finally:
                 db.close()
         except Exception as exc:
@@ -97,6 +99,8 @@ class PersonArticleRef(BaseModel):
     scraped_at: Optional[str] = None
     mention_count: int = 1
     role_context: Optional[str] = None
+    confidence: Optional[float] = None
+    sources: list[str] = []
 
 
 class PersonResponse(BaseModel):
@@ -105,12 +109,28 @@ class PersonResponse(BaseModel):
     role_context: Optional[str] = None
     mention_count: int
     article_count: int = 1
+    confidence: float = 0.5
+    sources: list[str] = []
+    review_status: str = "pending"
     created_at: Optional[str] = None
+    latest_seen: Optional[str] = None
     article_id: Optional[int] = None
     article_title: Optional[str] = None
     article_url: Optional[str] = None
     article_summary: Optional[str] = None
     articles: list[PersonArticleRef] = []
+
+
+class ReviewRequest(BaseModel):
+    status: str
+
+
+class StatsResponse(BaseModel):
+    total_articles: int
+    total_people: int
+    articles_last_24h: int
+    people_last_24h: int
+    pending_review: int = 0
 
 
 class ArticleResponse(BaseModel):
@@ -124,13 +144,6 @@ class ArticleResponse(BaseModel):
     region: Optional[str] = None
     status: str
     people: list[dict] = []
-
-
-class StatsResponse(BaseModel):
-    total_articles: int
-    total_people: int
-    articles_last_24h: int
-    people_last_24h: int
 
 
 class PipelineResult(BaseModel):
@@ -151,7 +164,7 @@ class ScrapeTriggerResponse(BaseModel):
 class ScrapeStatusResponse(BaseModel):
     running: bool
     run_id: Optional[int] = None
-    result: Optional[PipelineResult] = None
+    result: Optional[dict] = None
     error: Optional[str] = None
 
 
@@ -210,12 +223,33 @@ def list_people(
     name: Optional[str] = None,
     since: Optional[datetime] = None,
     hours: Optional[int] = Query(None, ge=1, le=168),
+    review_status: Optional[str] = Query(None, pattern="^(pending|confirmed|rejected)$"),
+    min_confidence: Optional[float] = Query(None, ge=0, le=1),
     limit: int = Query(50, le=200),
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
     since_cutoff = _since_from_params(since, hours)
-    return get_people_grouped(db, name=name, since=since_cutoff, limit=limit, offset=offset)
+    return get_people_grouped(
+        db,
+        name=name,
+        since=since_cutoff,
+        review_status=review_status,
+        min_confidence=min_confidence,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@app.post("/api/v1/people/{contact_id}/review", response_model=PersonResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
+def review_person(contact_id: int, body: ReviewRequest, db: Session = Depends(get_db)):
+    try:
+        result = contacts.set_contact_review_status(db, contact_id, body.status)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not result:
+        raise HTTPException(status_code=404, detail="Person not found")
+    return result
 
 
 @app.get("/api/v1/people/{person_id}", response_model=PersonResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
@@ -224,6 +258,17 @@ def get_person(person_id: int, db: Session = Depends(get_db)):
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
     return person
+
+
+@app.post("/api/v1/reprocess/names", response_model=ScrapeTriggerResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
+def reprocess_names():
+    """Re-run name extraction on all stored articles."""
+    return start_background_reprocess()
+
+
+@app.get("/api/v1/reprocess/status", response_model=ScrapeStatusResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
+def reprocess_status(run_id: Optional[int] = None):
+    return scrape_status(run_id)
 
 
 @app.post("/api/v1/scrape", response_model=ScrapeTriggerResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])

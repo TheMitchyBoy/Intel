@@ -4,9 +4,10 @@ import { formatDate } from "../api/client";
 interface Props {
   person: Person | null;
   onClose: () => void;
+  onReview?: (status: "confirmed" | "rejected") => void;
 }
 
-export function PersonDetail({ person, onClose }: Props) {
+export function PersonDetail({ person, onClose, onReview }: Props) {
   if (!person) return null;
 
   const articles = person.articles?.length
@@ -22,6 +23,8 @@ export function PersonDetail({ person, onClose }: Props) {
             scraped_at: person.created_at,
             mention_count: person.mention_count,
             role_context: person.role_context,
+            confidence: person.confidence,
+            sources: person.sources,
           },
         ]
       : [];
@@ -41,17 +44,30 @@ export function PersonDetail({ person, onClose }: Props) {
             .toUpperCase()}
         </div>
         <h2>{person.full_name}</h2>
-        {person.role_context && (
-          <p className="modal-role">{person.role_context}</p>
-        )}
+        {person.role_context && <p className="modal-role">{person.role_context}</p>}
         <dl className="detail-list">
+          <dt>Status</dt>
+          <dd>{person.review_status}</dd>
+          <dt>Confidence</dt>
+          <dd>{Math.round(person.confidence * 100)}%</dd>
+          <dt>Sources</dt>
+          <dd>{person.sources?.join(", ") || "—"}</dd>
           <dt>Articles</dt>
           <dd>{person.article_count ?? articles.length}</dd>
           <dt>Total mentions</dt>
           <dd>{person.mention_count}</dd>
-          <dt>Latest seen</dt>
-          <dd>{formatDate(person.created_at)}</dd>
         </dl>
+
+        {onReview && person.review_status === "pending" && (
+          <div className="review-actions">
+            <button className="btn btn--primary" onClick={() => onReview("confirmed")}>
+              Confirm
+            </button>
+            <button className="btn btn--ghost" onClick={() => onReview("rejected")}>
+              Reject
+            </button>
+          </div>
+        )}
 
         {articles.length > 0 && (
           <div className="person-articles">
@@ -64,12 +80,7 @@ export function PersonDetail({ person, onClose }: Props) {
                     {article.scraped_at && (
                       <span className="person-article-date">{formatDate(article.scraped_at)}</span>
                     )}
-                    {article.role_context && (
-                      <p className="person-article-role">{article.role_context}</p>
-                    )}
-                    {article.summary && (
-                      <p className="detail-summary">{article.summary}</p>
-                    )}
+                    {article.summary && <p className="detail-summary">{article.summary}</p>}
                   </div>
                   {article.url && (
                     <a

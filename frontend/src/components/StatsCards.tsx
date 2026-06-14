@@ -9,6 +9,7 @@ export function StatsCards({ stats, loading }: Props) {
   const cards = [
     { label: "Names today", value: stats?.people_last_24h, accent: true },
     { label: "Articles today", value: stats?.articles_last_24h },
+    { label: "Pending review", value: stats?.pending_review },
     { label: "Total people", value: stats?.total_people },
     { label: "Total articles", value: stats?.total_articles },
   ];

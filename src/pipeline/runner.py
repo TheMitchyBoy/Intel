@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from src.ai.name_extractor import extract_names
 from src.ai.summarizer import summarize_article
 from src.crm.webhook import notify_crm
-from src.database import crud
+from src.database import contacts, crud
 from src.scraper import get_all_scrapers, load_scraper_config
 
 logger = logging.getLogger(__name__)
@@ -15,14 +15,7 @@ logger = logging.getLogger(__name__)
 def _save_people(db: Session, article_id: int, people: list[dict]) -> int:
     added = 0
     for person in people:
-        created = crud.create_person(
-            db,
-            article_id=article_id,
-            full_name=person["full_name"],
-            role_context=person.get("role_context", ""),
-            mention_count=person.get("mention_count", 1),
-        )
-        if created:
+        if contacts.save_mention(db, article_id, person):
             added += 1
     return added
 
@@ -108,7 +101,7 @@ def run_pipeline(db: Session) -> dict:
         totals["new"] += new
         logger.info("Source %s: found=%d, new=%d", scraper.name, found, new)
 
-    removed = crud.cleanup_invalid_people(db)
+    removed = contacts.cleanup_invalid_contacts(db)
     if removed:
         logger.info("Removed %d invalid person records", removed)
 

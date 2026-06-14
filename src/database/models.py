@@ -1,9 +1,11 @@
+import json
 from datetime import datetime
 from functools import lru_cache
 
 from sqlalchemy import (
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -38,8 +40,10 @@ class Article(Base):
     status = Column(String(50), default="processed")
 
     people = relationship("Person", back_populates="article", cascade="all, delete-orphan")
+    mentions = relationship("PersonMention", back_populates="article", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict:
+        mention_people = [m.to_brief_dict() for m in self.mentions] if self.mentions else [p.to_dict() for p in self.people]
         return {
             "id": self.id,
             "source_name": self.source_name,
@@ -50,12 +54,69 @@ class Article(Base):
             "scraped_at": self.scraped_at.isoformat() if self.scraped_at else None,
             "region": self.region,
             "status": self.status,
-            "people": [p.to_dict() for p in self.people],
+            "people": mention_people,
+        }
+
+
+class Contact(Base):
+    """Canonical person record — one contact, many article mentions."""
+
+    __tablename__ = "contacts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    full_name = Column(String(255), nullable=False, index=True)
+    name_key = Column(String(255), nullable=False, unique=True, index=True)
+    review_status = Column(String(20), default="pending", nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    mentions = relationship("PersonMention", back_populates="contact", cascade="all, delete-orphan")
+
+
+class PersonMention(Base):
+    """A person mentioned in a specific article."""
+
+    __tablename__ = "person_mentions"
+    __table_args__ = (UniqueConstraint("contact_id", "article_id", name="uq_contact_article"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False, index=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    role_context = Column(Text)
+    mention_count = Column(Integer, default=1)
+    confidence = Column(Float, default=0.5, nullable=False)
+    sources = Column(Text, default="[]")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    contact = relationship("Contact", back_populates="mentions")
+    article = relationship("Article", back_populates="mentions")
+
+    def sources_list(self) -> list[str]:
+        try:
+            return json.loads(self.sources or "[]")
+        except json.JSONDecodeError:
+            return []
+
+    def to_brief_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "contact_id": self.contact_id,
+            "article_id": self.article_id,
+            "full_name": self.contact.full_name if self.contact else "",
+            "role_context": self.role_context,
+            "mention_count": self.mention_count,
+            "confidence": self.confidence,
+            "sources": self.sources_list(),
+            "review_status": self.contact.review_status if self.contact else "pending",
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "article_title": self.article.title if self.article else None,
+            "article_url": self.article.url if self.article else None,
+            "article_summary": self.article.summary if self.article else None,
         }
 
 
 class Person(Base):
-    """Person mentioned in a newspaper article — CRM-ready contact record."""
+    """Legacy per-article person row (migrated to Contact + PersonMention)."""
 
     __tablename__ = "people"
     __table_args__ = (UniqueConstraint("article_id", "full_name", name="uq_person_article"),)

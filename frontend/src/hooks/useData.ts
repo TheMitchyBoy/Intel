@@ -35,6 +35,8 @@ export function usePeople(query: PeopleQuery & { enabled?: boolean } = {}) {
   const name = params.name;
   const hours = params.hours;
   const since = params.since;
+  const review_status = params.review_status;
+  const min_confidence = params.min_confidence;
 
   useEffect(() => {
     if (!enabled) {
@@ -70,7 +72,7 @@ export function usePeople(query: PeopleQuery & { enabled?: boolean } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, name, hours, since]);
+  }, [enabled, name, hours, since, review_status, min_confidence]);
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
@@ -83,7 +85,7 @@ export function usePeople(query: PeopleQuery & { enabled?: boolean } = {}) {
     } finally {
       setLoading(false);
     }
-  }, [enabled, name, hours, since]);
+  }, [enabled, name, hours, since, review_status, min_confidence]);
 
   return { people, loading, error, refresh };
 }

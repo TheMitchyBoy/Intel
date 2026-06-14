@@ -5,6 +5,7 @@ from collections import Counter
 
 from openai import OpenAI
 
+from src.ai.name_confidence import compute_confidence
 from src.ai.person_names import (
     is_likely_place_name,
     is_valid_person_name,
@@ -116,7 +117,10 @@ def extract_names_from_bylines(text: str) -> list[dict]:
             found.append(name)
 
     counts = Counter(found)
-    return [{"full_name": name, "mention_count": count} for name, count in counts.most_common()]
+    return [
+        {"full_name": name, "mention_count": count, "sources": ["byline"]}
+        for name, count in counts.most_common()
+    ]
 
 
 def extract_names_from_title(title: str, url: str = "") -> list[dict]:
@@ -130,7 +134,7 @@ def extract_names_from_title(title: str, url: str = "") -> list[dict]:
         name = re.sub(r"\s*\([^)]+\)", "", title).strip()
         name = _normalize_name(name)
         if _is_valid_name(name, allow_single_word=True):
-            return [{"full_name": name, "mention_count": 1, "role_context": "Obituary"}]
+            return [{"full_name": name, "mention_count": 1, "role_context": "Obituary", "sources": ["obituary"]}]
 
     for match in TITLE_NAME_RE.finditer(title):
         name = _normalize_name(match.group(1))
@@ -138,7 +142,10 @@ def extract_names_from_title(title: str, url: str = "") -> list[dict]:
             found.append(name)
 
     counts = Counter(found)
-    return [{"full_name": name, "mention_count": count} for name, count in counts.most_common()]
+    return [
+        {"full_name": name, "mention_count": count, "sources": ["title"]}
+        for name, count in counts.most_common()
+    ]
 
 
 def extract_names_spacy(text: str) -> list[dict]:
@@ -165,7 +172,10 @@ def extract_names_spacy(text: str) -> list[dict]:
             found.append(name)
 
     counts = Counter(found)
-    return [{"full_name": name, "mention_count": count} for name, count in counts.most_common()]
+    return [
+        {"full_name": name, "mention_count": count, "sources": ["spacy"]}
+        for name, count in counts.most_common()
+    ]
 
 
 def extract_names_ai(title: str, content: str, *, include_writers: bool = False) -> list[dict]:
@@ -209,6 +219,7 @@ Content: {content[:6000]}"""
                 "full_name": _normalize_name(p["full_name"]),
                 "mention_count": p.get("mention_count", 1),
                 "role_context": p.get("role_context", ""),
+                "sources": ["ai"],
             }
             for p in people
             if p.get("full_name")
@@ -228,6 +239,7 @@ def _merge_people(*sources: list[dict]) -> list[dict]:
             if not _is_valid_name(name) or is_likely_place_name(name):
                 continue
             key = person_name_key(name)
+            person_sources = list(person.get("sources", []))
             if key in merged:
                 merged[key]["mention_count"] = max(
                     merged[key]["mention_count"],
@@ -235,13 +247,29 @@ def _merge_people(*sources: list[dict]) -> list[dict]:
                 )
                 if person.get("role_context") and not merged[key].get("role_context"):
                     merged[key]["role_context"] = person["role_context"]
+                merged[key]["sources"] = list(set(merged[key]["sources"] + person_sources))
             else:
                 merged[key] = {
                     "full_name": name,
                     "mention_count": person.get("mention_count", 1),
                     "role_context": person.get("role_context", ""),
+                    "sources": person_sources,
                 }
-    return list(merged.values())
+    results = []
+    for person in merged.values():
+        person["confidence"] = compute_confidence(person["sources"])
+        results.append(person)
+    return results
+
+
+def _tag_source(people: list[dict], source: str) -> list[dict]:
+    tagged = []
+    for person in people:
+        sources = list(person.get("sources", []))
+        if source not in sources:
+            sources.append(source)
+        tagged.append({**person, "sources": sources})
+    return tagged
 
 
 def extract_names(title: str, content: str, author: str = "", url: str = "") -> list[dict]:
@@ -254,7 +282,7 @@ def extract_names(title: str, content: str, author: str = "", url: str = "") -> 
     if author and opinion:
         text = f"{author}. {text}"
 
-    author_names = extract_names_from_author(author) if opinion else []
+    author_names = _tag_source(extract_names_from_author(author), "author") if opinion else []
     byline_names = extract_names_from_bylines(text) if opinion else []
     title_names = extract_names_from_title(title, url)
     ai_names = (

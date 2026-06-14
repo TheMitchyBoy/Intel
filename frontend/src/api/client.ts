@@ -46,6 +46,8 @@ export interface PeopleQuery {
   since?: string;
   hours?: number;
   limit?: number;
+  review_status?: string;
+  min_confidence?: number;
 }
 
 export interface ArticlesQuery {
@@ -64,6 +66,8 @@ export const api = {
     if (params?.since) q.set("since", params.since);
     if (params?.hours) q.set("hours", String(params.hours));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.review_status) q.set("review_status", params.review_status);
+    if (params?.min_confidence != null) q.set("min_confidence", String(params.min_confidence));
     const qs = q.toString();
     return request<Person[]>(`/api/v1/people${qs ? `?${qs}` : ""}`);
   },
@@ -81,6 +85,20 @@ export const api = {
   },
 
   getArticle: (id: number) => request<Article>(`/api/v1/articles/${id}`),
+
+  reviewPerson: (id: number, status: "confirmed" | "rejected" | "pending") =>
+    request<Person>(`/api/v1/people/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
+
+  triggerReprocess: () =>
+    request<ScrapeTriggerResponse>("/api/v1/reprocess/names", { method: "POST" }),
+
+  getReprocessStatus: (runId?: number) => {
+    const qs = runId ? `?run_id=${runId}` : "";
+    return request<ScrapeStatusResponse>(`/api/v1/reprocess/status${qs}`);
+  },
 
   triggerScrape: () =>
     request<ScrapeTriggerResponse>("/api/v1/scrape", { method: "POST" }),

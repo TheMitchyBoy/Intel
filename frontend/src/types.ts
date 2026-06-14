@@ -7,6 +7,8 @@ export interface PersonArticle {
   scraped_at: string | null;
   mention_count: number;
   role_context: string | null;
+  confidence?: number;
+  sources?: string[];
 }
 
 export interface Person {
@@ -15,7 +17,11 @@ export interface Person {
   role_context: string | null;
   mention_count: number;
   article_count: number;
+  confidence: number;
+  sources: string[];
+  review_status: "pending" | "confirmed" | "rejected";
   created_at: string | null;
+  latest_seen?: string | null;
   article_id: number | null;
   article_title: string | null;
   article_url: string | null;
@@ -41,15 +47,20 @@ export interface Stats {
   total_people: number;
   articles_last_24h: number;
   people_last_24h: number;
+  pending_review?: number;
 }
 
 export interface PipelineResult {
-  sources: number;
-  found: number;
-  new: number;
-  people: number;
+  sources?: number;
+  found?: number;
+  new?: number;
+  people?: number;
   people_updated?: number;
-  errors: { source: string; error: string }[];
+  errors?: { source: string; error: string }[];
+  job?: string;
+  articles?: number;
+  mentions_created?: number;
+  mentions_removed?: number;
 }
 
 export interface ScrapeTriggerResponse {
@@ -65,7 +76,7 @@ export interface ScrapeStatusResponse {
   error: string | null;
 }
 
-export type Tab = "today" | "people" | "articles";
+export type Tab = "today" | "people" | "review" | "articles";
 
 declare global {
   interface Window {
