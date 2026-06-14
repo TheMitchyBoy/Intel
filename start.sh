@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+echo "Checking database connection..."
+python scripts/wait_for_db.py
+
 echo "Initializing database..."
 python -m src.main init
 

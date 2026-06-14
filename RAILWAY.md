@@ -34,12 +34,20 @@ On the **web** service, add these variables:
 | `OPENAI_MODEL` | No | Default: `gpt-4o-mini` |
 | `SCRAPE_INTERVAL_HOURS` | No | Default: `6` |
 
-`DATABASE_URL` and `PORT` are set automatically by Railway.
+> **Important:** `DATABASE_URL` must be linked from Postgres — do not type it manually.
 
-### 4. Link Postgres to web service
+### 4. Link Postgres to web service (required)
 
-1. Open the **web** service → **Variables**
-2. Click **+ New Variable** → **Add Reference** → select Postgres → `DATABASE_URL`
+This is the most common cause of deploy failures.
+
+1. Open your **web** service (not Postgres)
+2. Go to **Variables** tab
+3. Click **+ New Variable** → **Add Reference**
+4. Select your **PostgreSQL** service
+5. Choose **`DATABASE_URL`** (or `DATABASE_PRIVATE_URL` for internal networking)
+6. Click **Add**
+
+You should see a variable like `${{Postgres.DATABASE_URL}}` in the web service variables.
 
 ### 5. Deploy
 
@@ -82,6 +90,7 @@ After deploy:
 |---|---|
 | Build fails | Check Railway build logs; ensure `frontend/package-lock.json` exists |
 | 502 / app won't start | Check deploy logs; confirm Postgres is linked and `DATABASE_URL` is set |
+| `Connection refused` to `localhost:5432` | `DATABASE_URL` not linked — see step 4 above |
 | Empty dashboard | Click **Run scrape** or add the worker/cron service |
 | `postgres://` errors | Handled automatically — app converts to `postgresql://` |
 | API key mismatch | Set `API_KEY` env var on web service; it's injected into the frontend at runtime |
