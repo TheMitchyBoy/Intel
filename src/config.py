@@ -29,7 +29,11 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_key: str = "dev-api-key"
-    scrape_interval_hours: int = 6
+    scrape_interval_hours: int = 24
+    scrape_schedule_enabled: bool = True
+    scrape_schedule_hour: int = 6
+    scrape_schedule_minute: int = 0
+    scrape_timezone: str = "America/Sitka"
     user_agent: str = "IntelBot/1.0 (Newspaper Intelligence Scraper)"
     crm_webhook_url: str = ""
     crm_webhook_secret: str = ""

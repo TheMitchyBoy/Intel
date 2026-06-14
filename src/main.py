@@ -3,7 +3,6 @@
 import logging
 
 import typer
-from apscheduler.schedulers.blocking import BlockingScheduler
 
 from src.config import settings
 from src.database.models import get_session_factory, init_db
@@ -41,20 +40,29 @@ def scrape():
 
 @app.command()
 def scheduler():
-    """Run the scraper on a schedule."""
+    """Run the scraper on a daily schedule (standalone worker)."""
+    from apscheduler.schedulers.blocking import BlockingScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    from src.pipeline.scheduler import _run_scheduled_scrape
+
     init_db()
-    sched = BlockingScheduler()
-
-    def job():
-        db = get_session_factory()()
-        try:
-            result = run_pipeline(db)
-            logger.info("Scheduled scrape complete: %s", result)
-        finally:
-            db.close()
-
-    sched.add_job(job, "interval", hours=settings.scrape_interval_hours, id="scrape_job")
-    logger.info("Scheduler started — scraping every %d hours", settings.scrape_interval_hours)
+    sched = BlockingScheduler(timezone=settings.scrape_timezone)
+    sched.add_job(
+        _run_scheduled_scrape,
+        CronTrigger(
+            hour=settings.scrape_schedule_hour,
+            minute=settings.scrape_schedule_minute,
+            timezone=settings.scrape_timezone,
+        ),
+        id="daily_scrape",
+    )
+    logger.info(
+        "Scheduler started — daily scrape at %02d:%02d %s",
+        settings.scrape_schedule_hour,
+        settings.scrape_schedule_minute,
+        settings.scrape_timezone,
+    )
     sched.start()
 
 

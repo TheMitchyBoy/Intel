@@ -56,21 +56,38 @@ railway config apply   # creates Postgres + wires DATABASE_URL
 | Service | Purpose |
 |---|---|
 | **PostgreSQL** | Database (add via Dashboard or `railway config apply`) |
-| **Intel** | API + CRM dashboard |
-| **worker** (optional) | `python -m src.main scheduler` |
+| **Intel** | API + CRM dashboard + **daily auto-scrape** (6:00 AM Alaska time) |
+| **worker** (optional) | Only if you disable the built-in scheduler |
 
-## Troubleshooting
+## Daily auto-scrape
+
+The Intel service automatically crawls Ketchikan Daily News **every day at 6:00 AM Alaska time** (`America/Sitka`). No separate worker needed.
+
+Override on Intel → **Variables**:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SCRAPE_SCHEDULE_ENABLED` | `true` | Set `false` to disable auto-scrape |
+| `SCRAPE_SCHEDULE_HOUR` | `6` | Hour to run (24h clock, local timezone) |
+| `SCRAPE_SCHEDULE_MINUTE` | `0` | Minute to run |
+| `SCRAPE_TIMEZONE` | `America/Sitka` | Ketchikan local time |
+
+Check schedule: `GET /health` or `GET /api/v1/setup` → `scrape_schedule`.
+
+## Optional worker
+
+Only needed if you set `SCRAPE_SCHEDULE_ENABLED=false` and want a dedicated scraper process:
+
+1. **+ New** → same repo → name `worker`
+2. Start command: `python -m src.main scheduler`
+3. Postgres → Connect → worker
+4. Set `OPENAI_API_KEY` and `API_KEY`
 
 | Diagnostics | Meaning | Fix |
 |---|---|---|
 | `DATABASE_URL: missing` | Not linked | Use Postgres → Connect → Intel |
 | `DATABASE_URL: unresolved_reference` | Broken `${{Postgres...}}` ref | Delete variable, use Connect button |
 | `PGHOST: set` but URL missing | Partial connect | Redeploy Intel after Connect |
-| App starts but no data | DB not init yet | Click **Run scrape** after DB connects |
+| App starts but no data | DB not init yet | Click **Run scrape** or wait for daily auto-scrape (6 AM AK) |
 
-## Optional worker
-
-1. **+ New** → same repo → name `worker`
-2. Start command: `python -m src.main scheduler`
-3. Postgres → Connect → worker
-4. Set `OPENAI_API_KEY` and `API_KEY`
+## Troubleshooting

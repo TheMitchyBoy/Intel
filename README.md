@@ -44,7 +44,7 @@ This starts:
 - **PostgreSQL** on port 5432
 - **API + CRM dashboard** on port 8000 — open http://localhost:8000
 - **Optional separate frontend** on port 3000 (same UI, nginx proxy)
-- **Scheduled scraper** (runs every 6 hours by default)
+- **Daily auto-scrape** (6:00 AM Alaska time by default)
 
 > **Note:** The CRM dashboard is served directly from the API on port **8000**. You do not need the separate frontend container unless you prefer port 3000.
 
@@ -173,7 +173,7 @@ src/
 ```bash
 python -m src.main init        # Create database tables
 python -m src.main scrape      # Run one scrape cycle
-python -m src.main scheduler   # Run scraper on interval
+python -m src.main scheduler   # standalone daily scheduler worker
 python -m src.main serve       # Start API server
 ```
 
@@ -185,7 +185,10 @@ python -m src.main serve       # Start API server
 | `OPENAI_API_KEY` | — | Required for AI summarization |
 | `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model to use |
 | `API_KEY` | `dev-api-key` | API key for CRM authentication |
-| `SCRAPE_INTERVAL_HOURS` | `6` | Hours between scheduled scrapes |
+| `SCRAPE_SCHEDULE_ENABLED` | `true` | Enable daily auto-scrape in the API process |
+| `SCRAPE_SCHEDULE_HOUR` | `6` | Hour to run (24h, local timezone) |
+| `SCRAPE_TIMEZONE` | `America/Sitka` | Timezone for scheduled scrape (Ketchikan) |
+| `SCRAPE_INTERVAL_HOURS` | `24` | Legacy interval setting for docker worker |
 | `CRM_WEBHOOK_URL` | — | Optional webhook for push notifications |
 | `CRM_WEBHOOK_SECRET` | — | HMAC secret for webhook verification |
 | `PORT` | `8000` | HTTP port (set automatically on Railway) |

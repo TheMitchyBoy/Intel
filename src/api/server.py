@@ -1,4 +1,5 @@
 import json
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,9 @@ from src.database.crud import get_article_by_id, get_articles, get_people, get_p
 from src.database.models import get_db, init_db
 from src.database.url import database_setup_error
 from src.pipeline.background import scrape_status, start_background_scrape
+from src.pipeline.scheduler import schedule_info, start_scheduler, stop_scheduler
+
+logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
 
@@ -29,7 +33,10 @@ async def lifespan(app: FastAPI):
             print(f"WARNING: Database init failed: {exc}")
     else:
         print("WARNING: Database not configured — API data endpoints will return 503")
+
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 app = FastAPI(
@@ -127,6 +134,7 @@ def health():
         "status": "ok",
         "service": "intel",
         "database": "connected" if settings.database_is_configured() else "not_configured",
+        "scrape_schedule": schedule_info(),
     }
 
 
@@ -137,6 +145,7 @@ def setup_status():
     return {
         "database_configured": configured,
         "diagnostics": settings.database_diagnostics(),
+        "scrape_schedule": schedule_info(),
         "instructions": None if configured else database_setup_error(),
     }
 

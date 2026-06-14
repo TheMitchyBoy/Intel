@@ -58,7 +58,9 @@ services:
     environment:
       DATABASE_URL: postgresql://intel:intel_secret@db:5432/intel_db
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-6}
+      SCRAPE_SCHEDULE_ENABLED: ${SCRAPE_SCHEDULE_ENABLED:-true}
+      SCRAPE_SCHEDULE_HOUR: ${SCRAPE_SCHEDULE_HOUR:-6}
+      SCRAPE_TIMEZONE: ${SCRAPE_TIMEZONE:-America/Sitka}
     depends_on:
       db:
         condition: service_healthy
