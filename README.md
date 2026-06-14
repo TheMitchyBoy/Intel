@@ -42,8 +42,11 @@ docker compose up -d
 
 This starts:
 - **PostgreSQL** on port 5432
-- **API server** on port 8000
+- **API + CRM dashboard** on port 8000 — open http://localhost:8000
+- **Optional separate frontend** on port 3000 (same UI, nginx proxy)
 - **Scheduled scraper** (runs every 6 hours by default)
+
+> **Note:** The CRM dashboard is served directly from the API on port **8000**. You do not need the separate frontend container unless you prefer port 3000.
 
 ### 4. Run locally (without Docker)
 
@@ -137,8 +140,9 @@ npm run dev    # http://localhost:3000 (proxies API to :8000)
 With Docker:
 
 ```bash
-docker compose up -d
-# CRM dashboard: http://localhost:3000
+docker compose up -d --build
+# CRM dashboard: http://localhost:8000
+# (optional alt): http://localhost:3000
 ```
 
 ### Dashboard features

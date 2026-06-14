@@ -1,9 +1,12 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -11,6 +14,8 @@ from src.config import settings
 from src.database.crud import get_article_by_id, get_articles, get_people, get_person_by_id, get_stats
 from src.database.models import get_db, init_db
 from src.pipeline.runner import run_pipeline
+
+STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
 
 
 @asynccontextmanager
@@ -160,3 +165,33 @@ def export_people(
         return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
     return records
+
+
+def _mount_frontend(app: FastAPI) -> None:
+    """Serve the built React CRM from / when static files are present."""
+    if not STATIC_DIR.is_dir() or not (STATIC_DIR / "index.html").is_file():
+        return
+
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/favicon.svg", include_in_schema=False)
+    def favicon():
+        return FileResponse(STATIC_DIR / "favicon.svg")
+
+    @app.get("/", include_in_schema=False)
+    def spa_root():
+        return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa_fallback(path: str):
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+        file_path = STATIC_DIR / path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(STATIC_DIR / "index.html")
+
+
+_mount_frontend(app)
