@@ -1,0 +1,26 @@
+# Configure your local newspaper sources here.
+# Each source can be RSS-based or HTML-based.
+
+sources:
+  - name: "Example Local News"
+    url: "https://news.google.com/rss/search?q=local+news&hl=en-US&gl=US&ceid=US:en"
+    type: rss
+    enabled: true
+    region: "local"
+
+  # HTML scraper example — uncomment and customize for your newspaper:
+  # - name: "My Local Gazette"
+  #   url: "https://www.example-local-news.com"
+  #   type: html
+  #   enabled: true
+  #   region: "Springfield"
+  #   selectors:
+  #     article_list: "article.news-item"
+  #     title: "h2.title"
+  #     link: "a.read-more"
+  #     content: "div.article-body"
+
+scraper:
+  max_articles_per_source: 20
+  request_delay_seconds: 2
+  lookback_days: 7
