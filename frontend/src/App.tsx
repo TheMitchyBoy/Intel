@@ -186,7 +186,7 @@ export default function App() {
               <div className="people-grid">
                 {todayPeople.map((person) => (
                   <PersonCard
-                    key={person.id}
+                    key={person.full_name}
                     person={person}
                     onClick={() => setSelectedPerson(person)}
                   />
@@ -200,7 +200,7 @@ export default function App() {
           <section className="section">
             <div className="section-header">
               <h2>All people</h2>
-              <span className="section-count">{displayPeople.length} records</span>
+              <span className="section-count">{displayPeople.length} people</span>
             </div>
             {peopleLoadingState && displayPeople.length === 0 ? (
               <p className="empty">Loading…</p>
@@ -210,7 +210,7 @@ export default function App() {
               <div className="people-grid">
                 {displayPeople.map((person) => (
                   <PersonCard
-                    key={person.id}
+                    key={person.full_name}
                     person={person}
                     onClick={() => setSelectedPerson(person)}
                   />

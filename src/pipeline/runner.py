@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 def _save_people(db: Session, article_id: int, people: list[dict]) -> int:
     added = 0
     for person in people:
-        crud.create_person(
+        created = crud.create_person(
             db,
             article_id=article_id,
             full_name=person["full_name"],
             role_context=person.get("role_context", ""),
             mention_count=person.get("mention_count", 1),
         )
-        added += 1
+        if created:
+            added += 1
     return added
 
 
@@ -106,5 +107,9 @@ def run_pipeline(db: Session) -> dict:
         totals["found"] += found
         totals["new"] += new
         logger.info("Source %s: found=%d, new=%d", scraper.name, found, new)
+
+    removed = crud.cleanup_invalid_people(db)
+    if removed:
+        logger.info("Removed %d invalid person records", removed)
 
     return totals

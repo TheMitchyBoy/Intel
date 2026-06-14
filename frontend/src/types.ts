@@ -1,13 +1,26 @@
+export interface PersonArticle {
+  mention_id: number;
+  article_id: number;
+  title: string | null;
+  url: string | null;
+  summary: string | null;
+  scraped_at: string | null;
+  mention_count: number;
+  role_context: string | null;
+}
+
 export interface Person {
   id: number;
-  article_id: number;
   full_name: string;
   role_context: string | null;
   mention_count: number;
+  article_count: number;
   created_at: string | null;
+  article_id: number | null;
   article_title: string | null;
   article_url: string | null;
   article_summary: string | null;
+  articles: PersonArticle[];
 }
 
 export interface Article {

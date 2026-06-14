@@ -5,6 +5,12 @@ from collections import Counter
 
 from openai import OpenAI
 
+from src.ai.person_names import (
+    is_likely_place_name,
+    is_valid_person_name,
+    normalize_person_name,
+    person_name_key,
+)
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -24,20 +30,9 @@ WRITER_ROLE_MARKERS = (
     "reporter", "correspondent", "daily news", "contributing writer",
 )
 
-# Names in headlines like "Owen Mendoza hits for Post 3"
 TITLE_NAME_RE = re.compile(
     r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b(?:\s+(?:hits|fields|wins|arrested|charged|dies|died|honored))"
 )
-
-SKIP_NAME_FRAGMENTS = (
-    "daily news", "associated press", "staff writer", "staff photo",
-    "facebook", "twitter", "whatsapp", "email", "print", "copy", "save",
-    "ketchikan", "legion post", "borough assembly", "high school",
-)
-SKIP_EXACT_NAMES = {
-    "email print copy", "facebook twitter", "positivity", "local news",
-    "ketchikan daily news", "daily news", "ketchikan daily news staff",
-}
 
 
 def _get_nlp():
@@ -55,10 +50,11 @@ def _get_nlp():
 
 
 def _normalize_name(name: str) -> str:
-    name = re.sub(r"\s+", " ", name.strip())
-    if name.isupper() and " " in name:
-        name = name.title()
-    return name
+    return normalize_person_name(name)
+
+
+def _is_valid_name(name: str, *, allow_single_word: bool = False) -> bool:
+    return is_valid_person_name(name, allow_single_word=allow_single_word)
 
 
 def is_opinion_or_editorial(url: str = "") -> bool:
@@ -75,7 +71,7 @@ def _strip_bylines(text: str) -> str:
 
 def _byline_names_in_text(text: str) -> set[str]:
     return {
-        _normalize_name(match.group(1)).lower()
+        person_name_key(match.group(1))
         for match in BYLINE_RE.finditer(text)
         if _is_valid_name(_normalize_name(match.group(1)))
     }
@@ -89,36 +85,22 @@ def _is_writer_role(role: str) -> bool:
 def _filter_writer_names(people: list[dict], *, excluded_names: set[str]) -> list[dict]:
     filtered: list[dict] = []
     for person in people:
-        name_key = person["full_name"].lower()
+        name_key = person_name_key(person["full_name"])
         if name_key in excluded_names:
             continue
         if _is_writer_role(person.get("role_context", "")):
             continue
+        if is_likely_place_name(person["full_name"]):
+            continue
         filtered.append(person)
     return filtered
-
-
-def _is_valid_name(name: str) -> bool:
-    if not name or len(name) < 3 or len(name) > 80:
-        return False
-    lower = name.lower()
-    if lower in SKIP_EXACT_NAMES:
-        return False
-    if any(skip in lower for skip in SKIP_NAME_FRAGMENTS):
-        return False
-    if " for the" in lower or lower.endswith(" for"):
-        return False
-    # Require at least one letter pair that looks like a name
-    if not re.search(r"[A-Za-z]{2,}", name):
-        return False
-    return True
 
 
 def extract_names_from_author(author: str) -> list[dict]:
     if not author:
         return []
     lower = author.lower().strip()
-    if lower in SKIP_EXACT_NAMES or "daily news" in lower and "by" not in lower:
+    if "daily news" in lower and "by" not in lower:
         return []
     return extract_names_from_bylines(author if author.lower().startswith("by") else f"By {author}")
 
@@ -144,11 +126,10 @@ def extract_names_from_title(title: str, url: str = "") -> list[dict]:
 
     found: list[str] = []
 
-    # Obituaries: title is usually the person's name
     if "obituar" in url.lower() or "/obituaries/" in url.lower():
         name = re.sub(r"\s*\([^)]+\)", "", title).strip()
         name = _normalize_name(name)
-        if _is_valid_name(name):
+        if _is_valid_name(name, allow_single_word=True):
             return [{"full_name": name, "mention_count": 1, "role_context": "Obituary"}]
 
     for match in TITLE_NAME_RE.finditer(title):
@@ -166,14 +147,25 @@ def extract_names_spacy(text: str) -> list[dict]:
 
     nlp = _get_nlp()
     doc = nlp(text[:10000])
-    names = [_normalize_name(ent.text) for ent in doc.ents if ent.label_ == "PERSON"]
+    place_names = {
+        person_name_key(ent.text)
+        for ent in doc.ents
+        if ent.label_ in ("GPE", "LOC", "FAC", "ORG")
+    }
 
-    counts = Counter(names)
-    return [
-        {"full_name": name, "mention_count": count}
-        for name, count in counts.most_common()
-        if _is_valid_name(name)
-    ]
+    found: list[str] = []
+    for ent in doc.ents:
+        if ent.label_ != "PERSON":
+            continue
+        name = _normalize_name(ent.text)
+        key = person_name_key(name)
+        if key in place_names or is_likely_place_name(name):
+            continue
+        if _is_valid_name(name):
+            found.append(name)
+
+    counts = Counter(found)
+    return [{"full_name": name, "mention_count": count} for name, count in counts.most_common()]
 
 
 def extract_names_ai(title: str, content: str, *, include_writers: bool = False) -> list[dict]:
@@ -191,7 +183,7 @@ def extract_names_ai(title: str, content: str, *, include_writers: bool = False)
 For each person, provide their full name, mention count, and their role/context.
 
 Return JSON: {{"people": [{{"full_name": "Jane Doe", "mention_count": 2, "role_context": "City Mayor"}}]}}
-Only include real people (not organizations or places).
+Only include real people (not organizations, cities, states, or places like Alaska or Ketchikan).
 {writer_rule}
 
 Title: {title}
@@ -219,7 +211,9 @@ Content: {content[:6000]}"""
                 "role_context": p.get("role_context", ""),
             }
             for p in people
-            if p.get("full_name") and _is_valid_name(_normalize_name(p["full_name"]))
+            if p.get("full_name")
+            and _is_valid_name(_normalize_name(p["full_name"]))
+            and not is_likely_place_name(_normalize_name(p["full_name"]))
         ]
     except Exception as e:
         logger.error("AI name extraction failed: %s", e)
@@ -231,9 +225,9 @@ def _merge_people(*sources: list[dict]) -> list[dict]:
     for people in sources:
         for person in people:
             name = _normalize_name(person["full_name"])
-            if not _is_valid_name(name):
+            if not _is_valid_name(name) or is_likely_place_name(name):
                 continue
-            key = name.lower()
+            key = person_name_key(name)
             if key in merged:
                 merged[key]["mention_count"] = max(
                     merged[key]["mention_count"],

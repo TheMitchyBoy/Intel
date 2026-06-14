@@ -9,6 +9,23 @@ interface Props {
 export function PersonDetail({ person, onClose }: Props) {
   if (!person) return null;
 
+  const articles = person.articles?.length
+    ? person.articles
+    : person.article_title
+      ? [
+          {
+            mention_id: person.id,
+            article_id: person.article_id ?? 0,
+            title: person.article_title,
+            url: person.article_url,
+            summary: person.article_summary,
+            scraped_at: person.created_at,
+            mention_count: person.mention_count,
+            role_context: person.role_context,
+          },
+        ]
+      : [];
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -28,32 +45,46 @@ export function PersonDetail({ person, onClose }: Props) {
           <p className="modal-role">{person.role_context}</p>
         )}
         <dl className="detail-list">
-          <dt>Mentions</dt>
+          <dt>Articles</dt>
+          <dd>{person.article_count ?? articles.length}</dd>
+          <dt>Total mentions</dt>
           <dd>{person.mention_count}</dd>
-          <dt>Found</dt>
+          <dt>Latest seen</dt>
           <dd>{formatDate(person.created_at)}</dd>
-          {person.article_title && (
-            <>
-              <dt>Article</dt>
-              <dd>{person.article_title}</dd>
-            </>
-          )}
-          {person.article_summary && (
-            <>
-              <dt>Summary</dt>
-              <dd className="detail-summary">{person.article_summary}</dd>
-            </>
-          )}
         </dl>
-        {person.article_url && (
-          <a
-            href={person.article_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn--outline"
-          >
-            Read original article →
-          </a>
+
+        {articles.length > 0 && (
+          <div className="person-articles">
+            <h3>Articles</h3>
+            <ul className="person-article-list">
+              {articles.map((article) => (
+                <li key={`${article.article_id}-${article.mention_id}`} className="person-article-item">
+                  <div>
+                    <strong>{article.title ?? "Untitled"}</strong>
+                    {article.scraped_at && (
+                      <span className="person-article-date">{formatDate(article.scraped_at)}</span>
+                    )}
+                    {article.role_context && (
+                      <p className="person-article-role">{article.role_context}</p>
+                    )}
+                    {article.summary && (
+                      <p className="detail-summary">{article.summary}</p>
+                    )}
+                  </div>
+                  {article.url && (
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn--outline btn--small"
+                    >
+                      Read →
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>

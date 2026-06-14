@@ -13,8 +13,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.config import settings
-from src.database.crud import get_article_by_id, get_articles, get_people, get_person_by_id, get_stats
-from src.database.models import get_db, init_db
+from src.database.crud import (
+    cleanup_invalid_people,
+    get_article_by_id,
+    get_articles,
+    get_people_grouped,
+    get_person_grouped,
+    get_stats,
+)
+from src.database.models import get_db, get_session_factory, init_db
 from src.database.url import database_setup_error
 from src.pipeline.background import scrape_status, start_background_scrape
 from src.pipeline.scheduler import schedule_info, start_scheduler, stop_scheduler
@@ -29,6 +36,13 @@ async def lifespan(app: FastAPI):
     if settings.database_is_configured():
         try:
             init_db()
+            db = get_session_factory()()
+            try:
+                removed = cleanup_invalid_people(db)
+                if removed:
+                    logger.info("Cleaned up %d invalid person records on startup", removed)
+            finally:
+                db.close()
         except Exception as exc:
             print(f"WARNING: Database init failed: {exc}")
     else:
@@ -74,16 +88,29 @@ def _since_from_params(since: Optional[datetime], hours: Optional[int]) -> Optio
     return None
 
 
+class PersonArticleRef(BaseModel):
+    mention_id: int
+    article_id: int
+    title: Optional[str] = None
+    url: Optional[str] = None
+    summary: Optional[str] = None
+    scraped_at: Optional[str] = None
+    mention_count: int = 1
+    role_context: Optional[str] = None
+
+
 class PersonResponse(BaseModel):
     id: int
-    article_id: int
     full_name: str
     role_context: Optional[str] = None
     mention_count: int
+    article_count: int = 1
     created_at: Optional[str] = None
+    article_id: Optional[int] = None
     article_title: Optional[str] = None
     article_url: Optional[str] = None
     article_summary: Optional[str] = None
+    articles: list[PersonArticleRef] = []
 
 
 class ArticleResponse(BaseModel):
@@ -188,16 +215,15 @@ def list_people(
     db: Session = Depends(get_db),
 ):
     since_cutoff = _since_from_params(since, hours)
-    people = get_people(db, name=name, since=since_cutoff, limit=limit, offset=offset)
-    return [p.to_dict() for p in people]
+    return get_people_grouped(db, name=name, since=since_cutoff, limit=limit, offset=offset)
 
 
 @app.get("/api/v1/people/{person_id}", response_model=PersonResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
 def get_person(person_id: int, db: Session = Depends(get_db)):
-    person = get_person_by_id(db, person_id)
+    person = get_person_grouped(db, person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
-    return person.to_dict()
+    return person
 
 
 @app.post("/api/v1/scrape", response_model=ScrapeTriggerResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
@@ -219,22 +245,32 @@ def export_people(
     db: Session = Depends(get_db),
 ):
     """Export people data for CRM import."""
-    people = get_people(db, since=since, limit=10000)
-    records = [p.to_dict() for p in people]
+    people = get_people_grouped(db, since=since, limit=10000)
 
     if format == "csv":
         import csv
         import io
 
+        flat = [
+            {
+                "full_name": p["full_name"],
+                "role_context": p.get("role_context"),
+                "mention_count": p["mention_count"],
+                "article_count": p["article_count"],
+                "latest_article": p.get("article_title"),
+                "article_url": p.get("article_url"),
+            }
+            for p in people
+        ]
         output = io.StringIO()
-        if records:
-            writer = csv.DictWriter(output, fieldnames=records[0].keys())
+        if flat:
+            writer = csv.DictWriter(output, fieldnames=flat[0].keys())
             writer.writeheader()
-            writer.writerows(records)
+            writer.writerows(flat)
         from fastapi.responses import PlainTextResponse
         return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
-    return records
+    return people
 
 
 def _mount_frontend(app: FastAPI) -> None:
