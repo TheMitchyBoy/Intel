@@ -160,8 +160,9 @@ class PipelineResult(BaseModel):
     sources: int
     found: int
     new: int
+    duplicates: int = 0
+    skipped_not_today: int = 0
     people: int
-    people_updated: int = 0
     errors: list[dict]
 
 

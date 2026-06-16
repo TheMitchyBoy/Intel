@@ -58,7 +58,7 @@ def scheduler():
         id="daily_scrape",
     )
     logger.info(
-        "Scheduler started — daily scrape at %02d:%02d %s",
+        "Scheduler started — daily scrape at %02d:%02d %s (today's articles only)",
         settings.scrape_schedule_hour,
         settings.scrape_schedule_minute,
         settings.scrape_timezone,

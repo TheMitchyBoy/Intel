@@ -76,7 +76,7 @@ def start_background_reprocess() -> dict[str, Any]:
     }
 
 
-def start_background_scrape() -> dict[str, Any]:
+def start_background_scrape(*, today_only: bool = False) -> dict[str, Any]:
     db = get_session_factory()()
     try:
         run = crud.create_pipeline_run(db)
@@ -94,7 +94,7 @@ def start_background_scrape() -> dict[str, Any]:
     def _run() -> None:
         db = get_session_factory()()
         try:
-            result = run_pipeline(db)
+            result = run_pipeline(db, today_only=today_only)
             crud.finish_pipeline_run(db, run_id, result={"job": "scrape", **result})
         except Exception as exc:
             logger.exception("Background scrape failed for run %s", run_id)

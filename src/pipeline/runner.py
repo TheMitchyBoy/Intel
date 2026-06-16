@@ -5,8 +5,10 @@ from sqlalchemy.orm import Session
 
 from src.ai.name_extractor import extract_names
 from src.ai.summarizer import summarize_article
+from src.config import settings
 from src.crm.webhook import notify_crm
 from src.database import contacts, crud
+from src.pipeline.filters import is_published_today
 from src.scraper import get_all_scrapers, load_scraper_config
 
 logger = logging.getLogger(__name__)
@@ -20,7 +22,7 @@ def _save_people(db: Session, article_id: int, people: list[dict]) -> int:
     return added
 
 
-def run_pipeline(db: Session) -> dict:
+def run_pipeline(db: Session, *, today_only: bool = False) -> dict:
     """Run the full scrape → extract → summarize → store pipeline."""
     scrapers = get_all_scrapers()
     scraper_config = load_scraper_config()
@@ -30,8 +32,9 @@ def run_pipeline(db: Session) -> dict:
         "sources": 0,
         "found": 0,
         "new": 0,
+        "duplicates": 0,
+        "skipped_not_today": 0,
         "people": 0,
-        "people_updated": 0,
         "errors": [],
     }
 
@@ -44,7 +47,16 @@ def run_pipeline(db: Session) -> dict:
         new = 0
 
         try:
-            articles = scraper.scrape()[:max_articles]
+            articles = scraper.scrape()
+            if today_only:
+                before = len(articles)
+                articles = [
+                    article
+                    for article in articles
+                    if is_published_today(article.published_at, settings.scrape_timezone)
+                ]
+                totals["skipped_not_today"] += before - len(articles)
+            articles = articles[:max_articles]
             found = len(articles)
 
             if found == 0:
@@ -54,19 +66,15 @@ def run_pipeline(db: Session) -> dict:
                 })
 
             for article in articles:
-                existing = crud.get_article_by_url(db, article.url)
+                if crud.get_article_by_url(db, article.url):
+                    totals["duplicates"] += 1
+                    continue
+
                 content = article.content or article.title
                 author = article.author or ""
                 people = extract_names(
                     article.title, content, author=author, url=article.url
                 )
-
-                if existing:
-                    if people:
-                        added = _save_people(db, existing.id, people)
-                        totals["people"] += added
-                        totals["people_updated"] += 1
-                    continue
 
                 summary = summarize_article(article.title, content)
 

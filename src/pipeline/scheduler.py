@@ -26,8 +26,8 @@ def _run_scheduled_scrape() -> None:
     if not settings.database_is_configured():
         logger.warning("Skipping scheduled scrape — database not configured")
         return
-    result = start_background_scrape()
-    logger.info("Scheduled scrape triggered: %s", result)
+    result = start_background_scrape(today_only=True)
+    logger.info("Scheduled scrape triggered (today's articles only): %s", result)
 
 
 def start_scheduler() -> BackgroundScheduler | None:
@@ -57,7 +57,7 @@ def start_scheduler() -> BackgroundScheduler | None:
     )
     _scheduler.start()
     logger.info(
-        "Daily scrape scheduled at %02d:%02d %s",
+        "Daily scrape scheduled at %02d:%02d %s (today's articles only)",
         settings.scrape_schedule_hour,
         settings.scrape_schedule_minute,
         settings.scrape_timezone,
