@@ -439,6 +439,54 @@ body {
   margin: 1rem 0;
 }
 
+.name-edit {
+  margin-bottom: 0.25rem;
+}
+
+.name-edit-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.name-edit-display h2 {
+  margin: 0;
+}
+
+.name-edit-input {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 0.5rem;
+}
+
+.name-edit-input:focus {
+  outline: none;
+  border-color: var(--glacier);
+  box-shadow: 0 0 0 2px var(--ice);
+}
+
+.name-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.name-edit-error {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: #b42318;
+}
+
+.name-edit-trigger {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+}
+
 .filter-bar {
   display: flex;
   align-items: center;

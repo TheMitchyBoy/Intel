@@ -3,6 +3,7 @@ from datetime import datetime
 from functools import lru_cache
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -12,6 +13,8 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
@@ -67,6 +70,7 @@ class Contact(Base):
     full_name = Column(String(255), nullable=False, index=True)
     name_key = Column(String(255), nullable=False, unique=True, index=True)
     review_status = Column(String(20), default="pending", nullable=False, index=True)
+    name_manually_edited = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -183,8 +187,25 @@ def get_session_factory() -> sessionmaker[Session]:
     return sessionmaker(bind=get_engine())
 
 
+def _migrate_schema(engine: Engine) -> None:
+    inspector = inspect(engine)
+    if "contacts" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("contacts")}
+    if "name_manually_edited" not in columns:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE contacts "
+                    "ADD COLUMN name_manually_edited BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+
+
 def init_db() -> None:
-    Base.metadata.create_all(bind=get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+    _migrate_schema(engine)
 
 
 def get_db():

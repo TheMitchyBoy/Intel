@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Person } from "../types";
 import { formatDate } from "../api/client";
 
@@ -5,9 +6,23 @@ interface Props {
   person: Person | null;
   onClose: () => void;
   onReview?: (status: "confirmed" | "rejected") => void;
+  onRename?: (fullName: string) => Promise<void>;
 }
 
-export function PersonDetail({ person, onClose, onReview }: Props) {
+export function PersonDetail({ person, onClose, onReview, onRename }: Props) {
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => {
+    if (person) {
+      setNameDraft(person.full_name);
+      setEditingName(false);
+      setRenameError(null);
+    }
+  }, [person?.id, person?.full_name]);
+
   if (!person) return null;
 
   const articles = person.articles?.length
@@ -29,6 +44,28 @@ export function PersonDetail({ person, onClose, onReview }: Props) {
         ]
       : [];
 
+  const nameChanged = nameDraft.trim() !== person.full_name;
+
+  const handleSaveName = async () => {
+    if (!onRename || !nameChanged) return;
+    setSavingName(true);
+    setRenameError(null);
+    try {
+      await onRename(nameDraft.trim());
+      setEditingName(false);
+    } catch (e) {
+      setRenameError(e instanceof Error ? e.message : "Failed to save name");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setNameDraft(person.full_name);
+    setEditingName(false);
+    setRenameError(null);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -43,7 +80,55 @@ export function PersonDetail({ person, onClose, onReview }: Props) {
             .slice(0, 2)
             .toUpperCase()}
         </div>
-        <h2>{person.full_name}</h2>
+
+        <div className="name-edit">
+          {editingName ? (
+            <>
+              <input
+                className="name-edit-input"
+                type="text"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleSaveName();
+                  if (e.key === "Escape") handleCancelEdit();
+                }}
+                autoFocus
+                disabled={savingName}
+              />
+              <div className="name-edit-actions">
+                <button
+                  className="btn btn--primary btn--small"
+                  onClick={() => void handleSaveName()}
+                  disabled={!nameChanged || !nameDraft.trim() || savingName}
+                >
+                  {savingName ? "Saving…" : "Save"}
+                </button>
+                <button
+                  className="btn btn--ghost btn--small"
+                  onClick={handleCancelEdit}
+                  disabled={savingName}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="name-edit-display">
+              <h2>{person.full_name}</h2>
+              {onRename && (
+                <button
+                  className="btn btn--ghost btn--small name-edit-trigger"
+                  onClick={() => setEditingName(true)}
+                >
+                  Edit name
+                </button>
+              )}
+            </div>
+          )}
+          {renameError && <p className="name-edit-error">{renameError}</p>}
+        </div>
+
         {person.role_context && <p className="modal-role">{person.role_context}</p>}
         <dl className="detail-list">
           <dt>Status</dt>

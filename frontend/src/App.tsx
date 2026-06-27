@@ -159,6 +159,14 @@ export default function App() {
     }
   };
 
+  const handleRename = async (fullName: string) => {
+    if (!selectedPerson) return;
+    const updated = await api.renamePerson(selectedPerson.id, fullName);
+    setSelectedPerson(updated);
+    refreshAll();
+    setScrapeMsg(`Renamed to ${updated.full_name}`);
+  };
+
   const handleReview = async (status: "confirmed" | "rejected") => {
     if (!selectedPerson) return;
     if (
@@ -538,6 +546,7 @@ export default function App() {
         person={selectedPerson}
         onClose={() => setSelectedPerson(null)}
         onReview={selectedPerson?.review_status !== "rejected" ? handleReview : undefined}
+        onRename={handleRename}
       />
       <ArticleDetail article={selectedArticle} onClose={() => setSelectedArticle(null)} />
     </div>

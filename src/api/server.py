@@ -130,6 +130,10 @@ class BulkReviewRequest(BaseModel):
     status: str
 
 
+class RenameRequest(BaseModel):
+    full_name: str
+
+
 class BulkReviewResponse(BaseModel):
     updated: int
     not_found: list[int] = []
@@ -264,6 +268,19 @@ def bulk_review_people(body: BulkReviewRequest, db: Session = Depends(get_db)):
 def review_person(contact_id: int, body: ReviewRequest, db: Session = Depends(get_db)):
     try:
         result = contacts.set_contact_review_status(db, contact_id, body.status)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not result:
+        raise HTTPException(status_code=404, detail="Person not found")
+    return result
+
+
+@app.patch("/api/v1/people/{contact_id}", response_model=PersonResponse, dependencies=[Depends(verify_api_key), Depends(require_database)])
+def rename_person(contact_id: int, body: RenameRequest, db: Session = Depends(get_db)):
+    try:
+        result = contacts.update_contact_name(db, contact_id, body.full_name)
+    except contacts.NameConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     if not result:

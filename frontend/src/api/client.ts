@@ -16,7 +16,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    let message = text || `Request failed: ${res.status}`;
+    try {
+      const parsed = JSON.parse(text) as { detail?: string };
+      if (typeof parsed.detail === "string") {
+        message = parsed.detail;
+      }
+    } catch {
+      // keep raw text
+    }
+    throw new Error(message);
   }
 
   return res.json();
@@ -95,6 +104,12 @@ export const api = {
     request<Person>(`/api/v1/people/${id}/review`, {
       method: "POST",
       body: JSON.stringify({ status }),
+    }),
+
+  renamePerson: (id: number, fullName: string) =>
+    request<Person>(`/api/v1/people/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ full_name: fullName }),
     }),
 
   bulkReviewPeople: (ids: number[], status: "confirmed" | "rejected" | "pending") =>

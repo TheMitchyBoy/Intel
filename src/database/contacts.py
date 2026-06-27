@@ -19,6 +19,10 @@ from src.database.models import Article, Contact, Person, PersonMention
 logger = logging.getLogger(__name__)
 
 
+class NameConflictError(ValueError):
+    """Raised when renaming would collide with another contact's name_key."""
+
+
 def find_contact(db: Session, full_name: str) -> Contact | None:
     """Find existing contact by exact or fuzzy name match."""
     full_name = normalize_person_name(full_name)
@@ -40,8 +44,9 @@ def get_or_create_contact(db: Session, full_name: str, *, confidence: float, sou
     existing = find_contact(db, full_name)
 
     if existing:
-        existing.full_name = pick_better_display_name(existing.full_name, full_name)
-        existing.name_key = person_name_key(existing.full_name)
+        if not existing.name_manually_edited:
+            existing.full_name = pick_better_display_name(existing.full_name, full_name)
+            existing.name_key = person_name_key(existing.full_name)
         existing.updated_at = datetime.utcnow()
         if existing.review_status == "pending" and auto_review_status(confidence, sources) == "confirmed":
             existing.review_status = "confirmed"
@@ -194,6 +199,36 @@ def get_contact_by_id(db: Session, contact_id: int) -> dict | None:
     contact = db.query(Contact).filter(Contact.id == contact_id).first()
     if not contact:
         return None
+    return contact_to_dict(contact)
+
+
+def update_contact_name(db: Session, contact_id: int, full_name: str) -> dict | None:
+    full_name = normalize_person_name(full_name)
+    if not is_valid_person_name(full_name, allow_single_word=True):
+        raise ValueError("Invalid name")
+
+    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not contact:
+        return None
+
+    key = person_name_key(full_name)
+    if key == contact.name_key:
+        return contact_to_dict(contact)
+
+    conflict = (
+        db.query(Contact)
+        .filter(Contact.name_key == key, Contact.id != contact_id)
+        .first()
+    )
+    if conflict:
+        raise NameConflictError("A contact with this name already exists")
+
+    contact.full_name = full_name
+    contact.name_key = key
+    contact.name_manually_edited = True
+    contact.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(contact)
     return contact_to_dict(contact)
 
 
