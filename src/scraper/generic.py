@@ -13,7 +13,7 @@ from src.scraper.base import BaseScraper, ScrapedArticle
 logger = logging.getLogger(__name__)
 
 BROWSER_USER_AGENT = (
-    "Mozilla/5.0 (compatible; ThroughlineBot/1.0; +https://github.com/TheMitchyBoy/Intel) "
+    "Mozilla/5.0 (compatible; ThroughlineBot/1.0; +https://github.com/TheMitchyBoy/Throughline) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 

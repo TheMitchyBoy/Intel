@@ -8,7 +8,7 @@
 
 Scrape your local paper, extract people with AI, summarize articles, and review contacts in a polished dashboard — with a REST API built for CRM integration.
 
-[![CI](https://github.com/TheMitchyBoy/Intel/actions/workflows/ci.yml/badge.svg)](https://github.com/TheMitchyBoy/Intel/actions/workflows/ci.yml)
+[![CI](https://github.com/TheMitchyBoy/Throughline/actions/workflows/ci.yml/badge.svg)](https://github.com/TheMitchyBoy/Throughline/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React 19](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)

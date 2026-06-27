@@ -1,6 +1,6 @@
 # Throughline Dashboard
 
-React CRM dashboard for [Throughline](https://github.com/TheMitchyBoy/Intel) — local newspaper intelligence API.
+React CRM dashboard for [Throughline](https://github.com/TheMitchyBoy/Throughline) — local newspaper intelligence API.
 
 In production, the built app is served from the API at port 8000. Use this package for local frontend development only.
 
