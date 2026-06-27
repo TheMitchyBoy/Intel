@@ -1,7 +1,8 @@
 {
-  "name": "frontend",
+  "name": "intel-dashboard",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "CRM dashboard for Intel — local newspaper intelligence",
   "type": "module",
   "scripts": {
     "dev": "vite",

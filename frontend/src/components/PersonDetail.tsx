@@ -1,3 +1,4 @@
+/** Person detail modal — view articles, review status, and edit name typos. */
 import { useEffect, useState } from "react";
 import type { Person } from "../types";
 import { formatDate } from "../api/client";

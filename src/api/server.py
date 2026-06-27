@@ -1,3 +1,9 @@
+"""FastAPI REST server and CRM dashboard host for Intel.
+
+Serves authenticated JSON endpoints under /api/v1/* and, when a production
+build exists in static/, mounts the React SPA at /. Startup initializes the
+database, migrates legacy people rows, and starts the daily scrape scheduler.
+"""
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -71,12 +77,14 @@ app.add_middleware(
 
 
 def verify_api_key(x_api_key: str = Header(...)):
+    """Reject requests without a valid X-API-Key header."""
     if x_api_key != settings.api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
 
 
 def require_database():
+    """Return 503 when Postgres is not configured (e.g. fresh Railway deploy)."""
     if not settings.database_is_configured():
         raise HTTPException(status_code=503, detail=database_setup_error())
     return True

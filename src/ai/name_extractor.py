@@ -1,3 +1,10 @@
+"""Person name extraction from newspaper articles.
+
+Combines multiple extraction strategies — bylines, headlines, spaCy NER, and
+OpenAI — then merges results with confidence scoring. Opinion/editorial
+articles include byline authors; news articles strip bylines to avoid
+counting reporters as story subjects.
+"""
 import json
 import logging
 import re

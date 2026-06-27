@@ -1,3 +1,9 @@
+"""Application configuration loaded from environment variables.
+
+Settings are read from .env and process env via pydantic-settings. Database URL
+aliases (DATABASE_URL, POSTGRES_URL, etc.) are normalized for Railway and local
+Docker Compose.
+"""
 import os
 
 from pydantic import AliasChoices, Field, field_validator
@@ -12,6 +18,8 @@ from src.database.url import (
 
 
 class Settings(BaseSettings):
+    """Runtime configuration for Intel (database, API, scraping, CRM webhooks)."""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = Field(

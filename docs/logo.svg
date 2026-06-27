@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Intel logo">
+  <rect width="64" height="64" rx="14" fill="#0f1c2e"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="#1a2d47"/>
+  <text x="32" y="42" text-anchor="middle" fill="#6eb3e0" font-family="DM Sans, system-ui, sans-serif" font-size="22" font-weight="700">IN</text>
+</svg>

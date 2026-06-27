@@ -18,5 +18,9 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Standard data-fetching and keyed reset patterns; not worth refactoring for this rule.
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])

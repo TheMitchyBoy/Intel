@@ -1,3 +1,4 @@
+/** React hooks for fetching Intel API data with loading/error state. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ArticlesQuery, type PeopleQuery } from "../api/client";
 import type { Article, Person, Stats } from "../types";

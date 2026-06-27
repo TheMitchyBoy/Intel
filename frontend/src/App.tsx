@@ -1,3 +1,6 @@
+/**
+ * Intel CRM dashboard — browse today's names, review contacts, and trigger scrapes.
+ */
 import { useEffect, useState } from "react";
 import { api } from "./api/client";
 import { useArticles, usePeople, useStats } from "./hooks/useData";

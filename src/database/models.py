@@ -188,6 +188,11 @@ def get_session_factory() -> sessionmaker[Session]:
 
 
 def _migrate_schema(engine: Engine) -> None:
+    """Apply additive schema changes for existing databases.
+
+    SQLAlchemy create_all() does not alter existing tables. This helper adds
+    new columns (e.g. name_manually_edited) without requiring Alembic.
+    """
     inspector = inspect(engine)
     if "contacts" not in inspector.get_table_names():
         return

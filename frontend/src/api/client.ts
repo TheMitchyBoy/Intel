@@ -1,3 +1,10 @@
+/**
+ * HTTP client for the Intel REST API.
+ *
+ * Auth: sends X-API-Key from window.__INTEL_API_KEY__ (injected by the API
+ * when serving the built SPA) or VITE_API_KEY in dev. All paths are relative
+ * to VITE_API_URL or the current origin.
+ */
 import type { Article, Person, ScrapeStatusResponse, ScrapeTriggerResponse, Stats } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "";

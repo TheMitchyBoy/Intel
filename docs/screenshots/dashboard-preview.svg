@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" fill="none" role="img" aria-label="Intel CRM dashboard preview">
+  <rect width="960" height="540" fill="#f4f6f9"/>
+  <rect width="960" height="72" fill="#0f1c2e"/>
+  <rect x="24" y="18" width="36" height="36" rx="8" fill="#1a2d47"/>
+  <text x="42" y="41" text-anchor="middle" fill="#6eb3e0" font-family="system-ui,sans-serif" font-size="14" font-weight="700">IN</text>
+  <text x="76" y="32" fill="#ffffff" font-family="system-ui,sans-serif" font-size="16" font-weight="700">Intel</text>
+  <text x="76" y="50" fill="#8fa3bf" font-family="system-ui,sans-serif" font-size="11">Ketchikan Daily News CRM</text>
+  <rect x="700" y="22" width="88" height="28" rx="6" fill="#2a4060"/>
+  <rect x="800" y="22" width="136" height="28" rx="6" fill="#3d8fd4"/>
+  <text x="868" y="40" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="600">Run scrape</text>
+
+  <rect x="24" y="96" width="912" height="88" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="40" y="112" width="200" height="56" rx="8" fill="#f0f7fc"/>
+  <rect x="260" y="112" width="200" height="56" rx="8" fill="#f0f7fc"/>
+  <rect x="480" y="112" width="200" height="56" rx="8" fill="#f0f7fc"/>
+  <rect x="700" y="112" width="200" height="56" rx="8" fill="#fff7ed" stroke="#f59e0b"/>
+
+  <rect x="24" y="204" width="912" height="40" rx="8" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="40" y="216" width="120" height="16" rx="4" fill="#3d8fd4"/>
+  <rect x="176" y="216" width="100" height="16" rx="4" fill="#e2e8f0"/>
+  <rect x="292" y="216" width="110" height="16" rx="4" fill="#e2e8f0"/>
+  <rect x="418" y="216" width="90" height="16" rx="4" fill="#e2e8f0"/>
+
+  <rect x="24" y="264" width="288" height="120" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="336" y="264" width="288" height="120" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="648" y="264" width="288" height="120" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="24" y="400" width="288" height="120" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="336" y="400" width="288" height="120" rx="10" fill="#fff" stroke="#e2e8f0"/>
+  <rect x="648" y="400" width="288" height="120" rx="10" fill="#fff" stroke="#e2e8f0"/>
+
+  <circle cx="56" cy="296" r="20" fill="#e8f4fc"/>
+  <circle cx="368" cy="296" r="20" fill="#e8f4fc"/>
+  <circle cx="680" cy="296" r="20" fill="#e8f4fc"/>
+  <text x="56" y="301" text-anchor="middle" fill="#3d8fd4" font-family="system-ui,sans-serif" font-size="11" font-weight="700">JD</text>
+  <text x="368" y="301" text-anchor="middle" fill="#3d8fd4" font-family="system-ui,sans-serif" font-size="11" font-weight="700">MS</text>
+  <text x="680" y="301" text-anchor="middle" fill="#3d8fd4" font-family="system-ui,sans-serif" font-size="11" font-weight="700">RK</text>
+</svg>

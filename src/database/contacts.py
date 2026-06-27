@@ -203,6 +203,13 @@ def get_contact_by_id(db: Session, contact_id: int) -> dict | None:
 
 
 def update_contact_name(db: Session, contact_id: int, full_name: str) -> dict | None:
+    """Rename a contact and mark it as manually edited.
+
+    Validates the new name, checks name_key uniqueness, and sets
+    name_manually_edited so future scrapes do not overwrite the correction.
+    Returns None if the contact does not exist; raises NameConflictError on
+    duplicate names and ValueError on invalid names.
+    """
     full_name = normalize_person_name(full_name)
     if not is_valid_person_name(full_name, allow_single_word=True):
         raise ValueError("Invalid name")

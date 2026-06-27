@@ -1,14 +1,51 @@
-# Intel — Local Newspaper Intelligence Scraper
+<div align="center">
 
-Scrape your local newspaper, extract people's names with AI, summarize articles, and push everything to a PostgreSQL database with a CRM-ready REST API.
+<img src="docs/logo.svg" alt="Intel" width="72" height="72" />
+
+# Intel
+
+**Local newspaper intelligence for CRM teams**
+
+Scrape your local paper, extract people with AI, summarize articles, and review contacts in a polished dashboard — with a REST API built for CRM integration.
+
+[![CI](https://github.com/TheMitchyBoy/Intel/actions/workflows/ci.yml/badge.svg)](https://github.com/TheMitchyBoy/Intel/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
+[![React 19](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+[Quick start](#quick-start) · [Dashboard](#crm-dashboard) · [API](#rest-api) · [Architecture](docs/ARCHITECTURE.md) · [Deploy on Railway](RAILWAY.md)
+
+</div>
+
+---
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-preview.svg" alt="Intel CRM dashboard preview" width="720" />
+</p>
 
 ## What it does
 
-1. **Scrapes** configurable local newspaper sources (RSS feeds or HTML pages)
-2. **Extracts people** mentioned in articles using OpenAI + spaCy NER
-3. **Summarizes** article content with AI into concise local-news briefs
-4. **Stores** everything in PostgreSQL with a schema designed for CRM integration
-5. **Exposes a REST API** your custom CRM can poll, or receives webhook push notifications
+Intel turns local newspaper coverage into structured CRM-ready contact data:
+
+1. **Scrapes** configurable RSS/HTML sources (`config/newspapers.yaml`)
+2. **Summarizes** articles with OpenAI into concise local-news briefs
+3. **Extracts people** using spaCy NER, headline parsing, and AI — merged with confidence scoring
+4. **Deduplicates** mentions into canonical contacts across articles
+5. **Reviews** low-confidence names in a human queue (confirm, reject, rename typos)
+6. **Exposes a REST API** for your CRM to poll, plus optional webhook push
+
+Ketchikan Daily News is pre-configured. Point the config at your own paper to get started.
+
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend | Python 3.12, FastAPI, SQLAlchemy 2, APScheduler |
+| AI | OpenAI GPT, spaCy `en_core_web_sm` |
+| Database | PostgreSQL 15+ |
+| Frontend | React 19, TypeScript, Vite |
+| Deploy | Docker, Railway |
 
 ## Quick start
 
@@ -16,75 +53,139 @@ Scrape your local newspaper, extract people's names with AI, summarize articles,
 
 ```bash
 cp .env.example .env
-# Edit .env — set OPENAI_API_KEY and API_KEY at minimum
+# Set OPENAI_API_KEY and API_KEY at minimum
 ```
 
-### 2. Configure your newspaper sources
+### 2. Configure newspaper sources
 
-Edit `config/newspapers.yaml` to point at your local newspaper's RSS feed or HTML page. Ketchikan Daily News is pre-configured:
+Edit `config/newspapers.yaml`. The default uses BLOX/TNCMS search RSS for Ketchikan Daily News (Local, Sports, Obituaries):
 
 ```yaml
 sources:
   - name: "Ketchikan Daily News"
-    url: "https://www.ketchikandailynews.com/search/?f=rss"
+    url: "https://www.ketchikandailynews.com/search/?f=rss&t=article"
     type: rss
     enabled: true
     region: "Ketchikan, AK"
+    filters:
+      url_must_contain: "/article_"
+      url_must_not_contain: "/image_"
 ```
 
-The config includes feeds for Local, Sports, and Obituaries sections. Image-only RSS entries are automatically filtered out.
+See inline comments in the YAML for pagination and selector tips.
 
-### 3. Run with Docker
+### 3. Run with Docker (recommended)
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-This starts:
-- **PostgreSQL** on port 5432
-- **API + CRM dashboard** on port 8000 — open http://localhost:8000
-- **Optional separate frontend** on port 3000 (same UI, nginx proxy)
-- **Daily auto-scrape** (6:00 AM Alaska time by default)
+| Service | URL |
+|---------|-----|
+| CRM dashboard + API | http://localhost:8000 |
+| PostgreSQL | localhost:5432 |
+| Optional frontend container | http://localhost:3000 |
 
-> **Note:** The CRM dashboard is served directly from the API on port **8000**. You do not need the separate frontend container unless you prefer port 3000.
+The dashboard is served from the API on port **8000** — you do not need the separate frontend container unless you prefer port 3000.
 
-### 4. Run locally (without Docker)
+### 4. Run locally
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 
-# Start PostgreSQL separately, then:
-python -m src.main init
+python -m src.main init      # create tables
 python -m src.main scrape    # one-time scrape
-python -m src.main serve     # start API
+python -m src.main serve     # API + dashboard at :8000
 ```
 
-## CRM integration
+## CRM dashboard
 
-### REST API
+Open http://localhost:8000 after starting the API.
 
-All endpoints require the `X-API-Key` header set to your `API_KEY` from `.env`.
+| Tab | Description |
+|-----|-------------|
+| **Today's names** | People mentioned in articles from the last 24 hours |
+| **All people** | Searchable directory with confidence filter |
+| **Review queue** | Confirm, reject, or bulk-review pending names |
+| **Articles** | Browse AI summaries with linked people |
+
+**Actions:** Run scrape, re-extract names, edit typos, confirm/reject contacts, view article detail modals.
+
+### Frontend development
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev    # http://localhost:5173 — proxies API to :8000
+```
+
+## REST API
+
+All `/api/v1/*` endpoints require the `X-API-Key` header (value from `API_KEY` in `.env`).
+
+Interactive docs: http://localhost:8000/docs
+
+### Public endpoints
 
 | Endpoint | Method | Description |
-|---|---|---|
-| `/api/v1/articles` | GET | List scraped articles with summaries |
-| `/api/v1/articles/{id}` | GET | Get a single article |
-| `/api/v1/people` | GET | List people mentioned in articles |
-| `/api/v1/people/{id}` | GET | Get a single person with article context |
-| `/api/v1/people?name=Smith` | GET | Search people by name |
-| `/api/v1/export/people?format=csv` | GET | Bulk export for CRM import |
-| `/api/v1/scrape` | POST | Trigger a manual scrape |
-| `/api/v1/stats` | GET | Dashboard stats |
-| `/health` | GET | Health check (no auth) |
+|----------|--------|-------------|
+| `/health` | GET | Service health and scrape schedule |
+| `/api/v1/setup` | GET | Database connection status (no auth) |
 
-Interactive API docs are available at `http://localhost:8000/docs`.
+### Articles
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/articles` | GET | List articles (`source`, `region`, `since`, `hours`, `limit`) |
+| `/api/v1/articles/{id}` | GET | Single article with people |
+
+### People & contacts
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/people` | GET | List contacts (`name`, `since`, `hours`, `review_status`, `min_confidence`) |
+| `/api/v1/people/{id}` | GET | Single contact with article history |
+| `/api/v1/people/{id}` | PATCH | Rename a contact (`{"full_name": "..."}`) |
+| `/api/v1/people/{id}/review` | POST | Set review status (`pending`, `confirmed`, `rejected`) |
+| `/api/v1/people/review/bulk` | POST | Bulk review (`{"ids": [...], "status": "..."}`) |
+| `/api/v1/export/people` | GET | CRM export (`format=json` or `format=csv`) |
+
+### Pipeline jobs
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/scrape` | POST | Start background scrape |
+| `/api/v1/scrape/status` | GET | Poll scrape progress |
+| `/api/v1/reprocess/names` | POST | Re-run name extraction on all articles |
+| `/api/v1/reprocess/status` | GET | Poll reprocess progress |
+| `/api/v1/stats` | GET | Dashboard statistics |
+
+### Example: CRM fetch
+
+```python
+import requests
+
+headers = {"X-API-Key": "your-api-key"}
+people = requests.get(
+    "http://localhost:8000/api/v1/people",
+    headers=headers,
+    params={"review_status": "confirmed", "since": "2026-06-01"},
+).json()
+
+for person in people:
+    crm.create_lead(
+        name=person["full_name"],
+        notes=person.get("role_context"),
+        source=person.get("article_url"),
+    )
+```
 
 ### Webhook push
 
-Set `CRM_WEBHOOK_URL` in `.env` to receive real-time notifications when new articles are processed:
+Set `CRM_WEBHOOK_URL` in `.env` to receive notifications when new articles are processed:
 
 ```json
 {
@@ -98,73 +199,39 @@ Set `CRM_WEBHOOK_URL` in `.env` to receive real-time notifications when new arti
 }
 ```
 
-If `CRM_WEBHOOK_SECRET` is set, requests include an `X-Intel-Signature` HMAC header for verification.
-
-### Example CRM fetch
-
-```python
-import requests
-
-headers = {"X-API-Key": "your-crm-api-key-here"}
-people = requests.get("http://localhost:8000/api/v1/people?since=2026-06-01", headers=headers).json()
-
-for person in people:
-    crm.create_lead(
-        name=person["full_name"],
-        notes=person["role_context"],
-        source=person["article_url"],
-    )
-```
+When `CRM_WEBHOOK_SECRET` is set, requests include an `X-Intel-Signature` HMAC header. See [SECURITY.md](SECURITY.md).
 
 ## Database schema
 
-**articles** — scraped articles with AI summaries
-- `id`, `source_name`, `title`, `url`, `summary`, `published_at`, `scraped_at`, `region`
+Intel uses canonical **contacts** with per-article **mentions** (not one row per article per person).
 
-**people** — individuals mentioned in articles (CRM contact records)
-- `id`, `article_id`, `full_name`, `role_context`, `mention_count`, `created_at`
-
-**scrape_logs** — audit trail for each scrape run
-
-## CRM Frontend
-
-A web dashboard for exploring scraped newspaper data and viewing names in the news today.
-
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev    # http://localhost:3000 (proxies API to :8000)
+```
+articles ──► person_mentions ──► contacts
 ```
 
-With Docker:
+| Table | Key columns |
+|-------|-------------|
+| `articles` | `title`, `url`, `summary`, `source_name`, `scraped_at`, `region` |
+| `contacts` | `full_name`, `name_key`, `review_status`, `name_manually_edited` |
+| `person_mentions` | `contact_id`, `article_id`, `role_context`, `confidence`, `sources` |
+| `pipeline_runs` | Background job status for scrape/reprocess |
+| `scrape_logs` | Per-source scrape audit trail |
 
-```bash
-docker compose up -d --build
-# CRM dashboard: http://localhost:8000
-# (optional alt): http://localhost:3000
-```
-
-### Dashboard features
-
-- **Today's names** — people mentioned in today's Ketchikan Daily News articles
-- **All people** — searchable directory of everyone found in the paper
-- **Articles** — browse AI summaries with linked people
-- **Run scrape** — trigger a fresh pull from the newspaper
-- **Detail modals** — click any person or article for full context
+Legacy `people` rows are migrated to contacts on startup. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full data flow.
 
 ## Project structure
 
 ```
 config/newspapers.yaml   # Newspaper source configuration
-frontend/                # React CRM dashboard
+docs/                    # Architecture, assets, screenshots
+frontend/                # React CRM dashboard (Vite + TypeScript)
 src/
   scraper/               # RSS and HTML scrapers
   ai/                    # Name extraction and summarization
-  database/              # SQLAlchemy models and CRUD
-  api/                   # FastAPI REST server
-  pipeline/              # Orchestration (scrape → AI → store)
-  crm/                   # Webhook push to CRM
+  database/              # SQLAlchemy models, contacts, CRUD
+  api/                   # FastAPI REST server + SPA hosting
+  pipeline/              # Scrape orchestration, scheduler, background jobs
+  crm/                   # Webhook push to external CRM
   main.py                # CLI entry point
 ```
 
@@ -173,22 +240,22 @@ src/
 ```bash
 python -m src.main init        # Create database tables
 python -m src.main scrape      # Run one scrape cycle
-python -m src.main scheduler   # standalone daily scheduler worker
+python -m src.main scheduler   # Standalone daily scheduler worker
 python -m src.main serve       # Start API server
 ```
 
 ## Environment variables
 
 | Variable | Default | Description |
-|---|---|---|
+|----------|---------|-------------|
 | `DATABASE_URL` | `postgresql://...` | PostgreSQL connection string |
-| `OPENAI_API_KEY` | — | Required for AI summarization |
-| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model to use |
+| `OPENAI_API_KEY` | — | Required for AI summarization and extraction |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model |
 | `API_KEY` | `dev-api-key` | API key for CRM authentication |
-| `SCRAPE_SCHEDULE_ENABLED` | `true` | Enable daily auto-scrape in the API process |
+| `SCRAPE_SCHEDULE_ENABLED` | `true` | Daily auto-scrape in API process |
 | `SCRAPE_SCHEDULE_HOUR` | `6` | Hour to run (24h, local timezone) |
-| `SCRAPE_TIMEZONE` | `America/Sitka` | Timezone for scheduled scrape (Ketchikan) |
-| `SCRAPE_INTERVAL_HOURS` | `24` | Legacy interval setting for docker worker |
+| `SCRAPE_TIMEZONE` | `America/Sitka` | Timezone for scheduled scrape |
+| `SCRAPE_INTERVAL_HOURS` | `24` | Legacy interval for docker worker |
 | `CRM_WEBHOOK_URL` | — | Optional webhook for push notifications |
 | `CRM_WEBHOOK_SECRET` | — | HMAC secret for webhook verification |
 | `PORT` | `8000` | HTTP port (set automatically on Railway) |
@@ -197,8 +264,12 @@ python -m src.main serve       # Start API server
 
 See **[RAILWAY.md](RAILWAY.md)** for full instructions.
 
-**If you see "DATABASE_URL is empty":**
+**Database not connected?** Railway → **+ New** → **Database** → **PostgreSQL** → Postgres **Connect** → select **Intel** → set `OPENAI_API_KEY` and `API_KEY` → **Redeploy**.
 
-1. Railway → **+ New** → **Database** → **PostgreSQL**
-2. Postgres service → **Connect** → select **Intel**
-3. Set `OPENAI_API_KEY` and `API_KEY` on Intel → **Redeploy**
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and pull requests are welcome.
+
+## License
+
+[MIT](LICENSE)
