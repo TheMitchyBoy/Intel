@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/logo.svg" alt="Intel" width="72" height="72" />
+<img src="docs/logo.svg" alt="Throughline" width="72" height="72" />
 
-# Intel
+# Throughline
 
-**Local newspaper intelligence for CRM teams**
+**Your through line from local news to CRM**
 
 Scrape your local paper, extract people with AI, summarize articles, and review contacts in a polished dashboard — with a REST API built for CRM integration.
 
@@ -21,12 +21,12 @@ Scrape your local paper, extract people with AI, summarize articles, and review 
 ---
 
 <p align="center">
-  <img src="docs/screenshots/dashboard-preview.svg" alt="Intel CRM dashboard preview" width="720" />
+  <img src="docs/screenshots/dashboard-preview.svg" alt="Throughline CRM dashboard preview" width="720" />
 </p>
 
 ## What it does
 
-Intel turns local newspaper coverage into structured CRM-ready contact data:
+Throughline turns local newspaper coverage into structured CRM-ready contact data:
 
 1. **Scrapes** configurable RSS/HTML sources (`config/newspapers.yaml`)
 2. **Summarizes** articles with OpenAI into concise local-news briefs
@@ -199,11 +199,11 @@ Set `CRM_WEBHOOK_URL` in `.env` to receive notifications when new articles are p
 }
 ```
 
-When `CRM_WEBHOOK_SECRET` is set, requests include an `X-Intel-Signature` HMAC header. See [SECURITY.md](SECURITY.md).
+When `CRM_WEBHOOK_SECRET` is set, requests include an `X-Throughline-Signature` HMAC header. See [SECURITY.md](SECURITY.md).
 
 ## Database schema
 
-Intel uses canonical **contacts** with per-article **mentions** (not one row per article per person).
+Throughline uses canonical **contacts** with per-article **mentions** (not one row per article per person).
 
 ```
 articles ──► person_mentions ──► contacts
@@ -264,7 +264,7 @@ python -m src.main serve       # Start API server
 
 See **[RAILWAY.md](RAILWAY.md)** for full instructions.
 
-**Database not connected?** Railway → **+ New** → **Database** → **PostgreSQL** → Postgres **Connect** → select **Intel** → set `OPENAI_API_KEY` and `API_KEY` → **Redeploy**.
+**Database not connected?** Railway → **+ New** → **Database** → **PostgreSQL** → Postgres **Connect** → select **Throughline** → set `OPENAI_API_KEY` and `API_KEY` → **Redeploy**.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Intel scrapes local newspaper sources, extracts people and summaries with AI, stores canonical contacts in PostgreSQL, and exposes a CRM-ready REST API with a React dashboard.
+Throughline scrapes local newspaper sources, extracts people and summaries with AI, stores canonical contacts in PostgreSQL, and exposes a CRM-ready REST API with a React dashboard.
 
 ## System overview
 

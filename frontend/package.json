@@ -1,8 +1,8 @@
 {
-  "name": "intel-dashboard",
+  "name": "throughline-dashboard",
   "private": true,
   "version": "1.0.0",
-  "description": "CRM dashboard for Intel — local newspaper intelligence",
+  "description": "CRM dashboard for Throughline — local newspaper intelligence",
   "type": "module",
   "scripts": {
     "dev": "vite",

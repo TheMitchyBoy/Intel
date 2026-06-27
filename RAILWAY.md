@@ -1,8 +1,8 @@
-# Deploying Intel on Railway
+# Deploying Throughline on Railway
 
 ## Fix: "DATABASE_URL is empty"
 
-This means **PostgreSQL is not connected** to your Intel service. Follow these steps exactly:
+This means **PostgreSQL is not connected** to your Throughline service. Follow these steps exactly:
 
 ### Step 1 — Add PostgreSQL
 
@@ -10,27 +10,27 @@ This means **PostgreSQL is not connected** to your Intel service. Follow these s
 2. Click **+ New** → **Database** → **PostgreSQL**
 3. Wait for it to finish provisioning (~30 seconds)
 
-### Step 2 — Connect Postgres to Intel
+### Step 2 — Connect Postgres to Throughline
 
 1. Click the **PostgreSQL** service on your canvas
 2. Click the **Connect** button (or **Data** tab → Connect)
-3. Select your **Intel** service from the list
+3. Select your **Throughline** service from the list
 4. Railway automatically adds `DATABASE_URL`, `PGHOST`, `PGUSER`, etc.
 
 > **Important:** Use **Connect**, don't manually type `${{Postgres.DATABASE_URL}}` unless a Postgres service named exactly `Postgres` exists.
 
-### Step 3 — Set API keys on Intel
+### Step 3 — Set API keys on Throughline
 
-Intel service → **Variables**:
+Throughline service → **Variables**:
 
 | Variable | Value |
 |---|---|
 | `OPENAI_API_KEY` | your OpenAI key |
 | `API_KEY` | a strong random secret |
 
-### Step 4 — Redeploy Intel
+### Step 4 — Redeploy Throughline
 
-Click **Deploy** on the Intel service (or push to GitHub).
+Click **Deploy** on the Throughline service (or push to GitHub).
 
 ### Step 5 — Verify
 
@@ -56,14 +56,14 @@ railway config apply   # creates Postgres + wires DATABASE_URL
 | Service | Purpose |
 |---|---|
 | **PostgreSQL** | Database (add via Dashboard or `railway config apply`) |
-| **Intel** | API + CRM dashboard + **daily auto-scrape** (6:00 AM Alaska time) |
+| **Throughline** | API + CRM dashboard + **daily auto-scrape** (6:00 AM Alaska time) |
 | **worker** (optional) | Only if you disable the built-in scheduler |
 
 ## Daily auto-scrape
 
-The Intel service automatically crawls Ketchikan Daily News **every day at 6:00 AM Alaska time** (`America/Sitka`). No separate worker needed.
+The Throughline service automatically crawls Ketchikan Daily News **every day at 6:00 AM Alaska time** (`America/Sitka`). No separate worker needed.
 
-Override on Intel → **Variables**:
+Override on Throughline → **Variables**:
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -85,9 +85,9 @@ Only needed if you set `SCRAPE_SCHEDULE_ENABLED=false` and want a dedicated scra
 
 | Diagnostics | Meaning | Fix |
 |---|---|---|
-| `DATABASE_URL: missing` | Not linked | Use Postgres → Connect → Intel |
+| `DATABASE_URL: missing` | Not linked | Use Postgres → Connect → Throughline |
 | `DATABASE_URL: unresolved_reference` | Broken `${{Postgres...}}` ref | Delete variable, use Connect button |
-| `PGHOST: set` but URL missing | Partial connect | Redeploy Intel after Connect |
+| `PGHOST: set` but URL missing | Partial connect | Redeploy Throughline after Connect |
 | App starts but no data | DB not init yet | Click **Run scrape** or wait for daily auto-scrape (6 AM AK) |
 
 ## Troubleshooting

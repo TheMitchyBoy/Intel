@@ -1,5 +1,5 @@
 /**
- * Intel CRM dashboard — browse today's names, review contacts, and trigger scrapes.
+ * Throughline CRM dashboard — browse today's names, review contacts, and trigger scrapes.
  */
 import { useEffect, useState } from "react";
 import { api } from "./api/client";
@@ -273,10 +273,10 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="header-brand">
-          <div className="logo">Intel</div>
+          <div className="logo">Throughline</div>
           <div>
             <h1>Ketchikan Daily News CRM</h1>
-            <p className="header-sub">Local newspaper intelligence</p>
+            <p className="header-sub">Local news to CRM pipeline</p>
           </div>
         </div>
         <div className="header-actions">

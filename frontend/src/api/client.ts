@@ -1,7 +1,7 @@
 /**
- * HTTP client for the Intel REST API.
+ * HTTP client for the Throughline REST API.
  *
- * Auth: sends X-API-Key from window.__INTEL_API_KEY__ (injected by the API
+ * Auth: sends X-API-Key from window.__THROUGHLINE_API_KEY__ (injected by the API
  * when serving the built SPA) or VITE_API_KEY in dev. All paths are relative
  * to VITE_API_URL or the current origin.
  */
@@ -9,7 +9,7 @@ import type { Article, Person, ScrapeStatusResponse, ScrapeTriggerResponse, Stat
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 const API_KEY =
-  window.__INTEL_API_KEY__ || import.meta.env.VITE_API_KEY || "dev-api-key";
+  window.__THROUGHLINE_API_KEY__ || import.meta.env.VITE_API_KEY || "dev-api-key";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {

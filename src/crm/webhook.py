@@ -24,7 +24,7 @@ def notify_crm(event: str, data: dict) -> bool:
             json.dumps(payload, default=str).encode(),
             hashlib.sha256,
         ).hexdigest()
-        headers["X-Intel-Signature"] = signature
+        headers["X-Throughline-Signature"] = signature
 
     try:
         with httpx.Client(timeout=10) as client:

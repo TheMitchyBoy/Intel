@@ -1,6 +1,6 @@
-# Contributing to Intel
+# Contributing to Throughline
 
-Thank you for helping improve Intel. This guide covers local setup, conventions, and how to submit changes.
+Thank you for helping improve Throughline. This guide covers local setup, conventions, and how to submit changes.
 
 ## Prerequisites
 

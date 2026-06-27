@@ -1,6 +1,15 @@
 # Changelog
 
-All notable changes to Intel are documented here.
+All notable changes to Throughline are documented here.
+
+## [1.1.0] — 2026-06-27
+
+### Changed
+
+- Rebranded from **Intel** to **Throughline** across app, API, and documentation
+- Logo monogram updated to **TL**; webhook header renamed to `X-Throughline-Signature`
+- API key injection uses `window.__THROUGHLINE_API_KEY__`
+- Frontend package renamed to `throughline-dashboard`
 
 ## [1.0.0] — 2026-06-27
 
@@ -21,4 +30,4 @@ All notable changes to Intel are documented here.
 ### Changed
 
 - README rewritten with full API reference and architecture overview
-- Frontend package renamed to `intel-dashboard`
+- Frontend package renamed to `throughline-dashboard`

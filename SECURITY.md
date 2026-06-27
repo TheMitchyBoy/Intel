@@ -16,11 +16,11 @@ Please report security issues privately by opening a GitHub Security Advisory on
 
 ## Dashboard API key injection
 
-When the React dashboard is served from the API (`static/` build), the server injects `window.__INTEL_API_KEY__` into the HTML. Anyone with access to the dashboard URL can read this key from page source. Treat the dashboard as an authenticated internal tool, or place it behind your own auth proxy.
+When the React dashboard is served from the API (`static/` build), the server injects `window.__THROUGHLINE_API_KEY__` into the HTML. Anyone with access to the dashboard URL can read this key from page source. Treat the dashboard as an authenticated internal tool, or place it behind your own auth proxy.
 
 ## Webhooks
 
-When `CRM_WEBHOOK_SECRET` is set, outbound webhook payloads include an `X-Intel-Signature` HMAC-SHA256 header. Verify this signature before trusting webhook data.
+When `CRM_WEBHOOK_SECRET` is set, outbound webhook payloads include an `X-Throughline-Signature` HMAC-SHA256 header. Verify this signature before trusting webhook data.
 
 ## CORS
 

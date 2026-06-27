@@ -80,6 +80,6 @@ export type Tab = "today" | "people" | "review" | "articles";
 
 declare global {
   interface Window {
-    __INTEL_API_KEY__?: string;
+    __THROUGHLINE_API_KEY__?: string;
   }
 }

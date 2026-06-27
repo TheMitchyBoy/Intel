@@ -18,7 +18,7 @@ from src.database.url import (
 
 
 class Settings(BaseSettings):
-    """Runtime configuration for Intel (database, API, scraping, CRM webhooks)."""
+    """Runtime configuration for Throughline (database, API, scraping, CRM webhooks)."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     scrape_schedule_hour: int = 6
     scrape_schedule_minute: int = 0
     scrape_timezone: str = "America/Sitka"
-    user_agent: str = "IntelBot/1.0 (Newspaper Intelligence Scraper)"
+    user_agent: str = "ThroughlineBot/1.0 (Newspaper Intelligence Scraper)"
     crm_webhook_url: str = ""
     crm_webhook_secret: str = ""
     port: int = 8000
@@ -72,7 +72,7 @@ class Settings(BaseSettings):
         if ("localhost" in url or "127.0.0.1" in url) and self.is_railway():
             raise RuntimeError(
                 "DATABASE_URL points to localhost on Railway.\n"
-                "Use Postgres → Connect → Intel, or Add Reference → DATABASE_URL"
+                "Use Postgres → Connect → Throughline, or Add Reference → DATABASE_URL"
             )
 
     def database_diagnostics(self) -> dict:

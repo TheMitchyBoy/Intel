@@ -1,4 +1,4 @@
-"""Intel — Local Newspaper Intelligence Scraper CLI."""
+"""Throughline — Local Newspaper Intelligence Scraper CLI."""
 
 import logging
 
@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = typer.Typer(help="Intel — Scrape local newspapers, extract names, summarize with AI.")
+app = typer.Typer(help="Throughline — Scrape local newspapers, extract names, summarize with AI.")
 
 
 @app.command()

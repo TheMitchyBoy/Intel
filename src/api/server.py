@@ -1,4 +1,4 @@
-"""FastAPI REST server and CRM dashboard host for Intel.
+"""FastAPI REST server and CRM dashboard host for Throughline.
 
 Serves authenticated JSON endpoints under /api/v1/* and, when a production
 build exists in static/, mounts the React SPA at /. Startup initializes the
@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Intel — Newspaper Intelligence API",
+    title="Throughline — Newspaper Intelligence API",
     description="CRM-ready API for scraped local newspaper data with AI summaries and people mentions.",
     version="1.0.0",
     lifespan=lifespan,
@@ -195,7 +195,7 @@ class ScrapeStatusResponse(BaseModel):
 def health():
     return {
         "status": "ok",
-        "service": "intel",
+        "service": "throughline",
         "database": "connected" if settings.database_is_configured() else "not_configured",
         "scrape_schedule": schedule_info(),
     }
@@ -374,7 +374,7 @@ def _mount_frontend(app: FastAPI) -> None:
     def _spa_index() -> HTMLResponse:
         index = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
         script = (
-            f"<script>window.__INTEL_API_KEY__={json.dumps(settings.api_key)};</script>"
+            f"<script>window.__THROUGHLINE_API_KEY__={json.dumps(settings.api_key)};</script>"
         )
         if "</head>" in index:
             index = index.replace("</head>", f"{script}</head>", 1)

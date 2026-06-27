@@ -10,7 +10,7 @@ import {
 export default defineRailway(() => {
   const Postgres = postgres("Postgres");
 
-  const Intel = service("Intel", {
+  const Throughline = service("Throughline", {
     healthcheck: "/health",
     healthcheckTimeout: 300,
     env: {
@@ -20,7 +20,7 @@ export default defineRailway(() => {
     },
   });
 
-  return project("Intel", {
-    resources: [group("Stack", [Postgres, Intel])],
+  return project("Throughline", {
+    resources: [group("Stack", [Postgres, Throughline])],
   });
 });

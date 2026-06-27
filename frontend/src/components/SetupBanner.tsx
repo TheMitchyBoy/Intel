@@ -29,9 +29,9 @@ export function SetupBanner() {
         </li>
         <li>
           Open the Postgres service → <strong>Connect</strong> → select{" "}
-          <strong>Intel</strong>
+          <strong>Throughline</strong>
         </li>
-        <li>Redeploy Intel</li>
+        <li>Redeploy Throughline</li>
       </ol>
       <details>
         <summary>Diagnostics</summary>
